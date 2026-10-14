@@ -48,7 +48,7 @@ body {
     sans-serif;
   max-width: 720px;
   margin: auto;
-  padding: 12px 12px 80px;
+  padding: 12px 12px 120px;
 }
 h2 {
   margin: 4px 0 10px;
@@ -84,30 +84,6 @@ h2 {
 }
 .neg {
   color: #dc2626;
-}
-nav {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  background: var(--card);
-  border-top: 1px solid var(--bd);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  max-width: 720px;
-  margin: auto;
-}
-nav button {
-  flex: 1;
-  border: 0;
-  background: none;
-  color: var(--mu);
-  padding: 12px 4px;
-  font-size: 13px;
-}
-nav button.on {
-  color: var(--ac);
-  font-weight: 700;
 }
 .r {
   display: flex;
@@ -185,10 +161,6 @@ pre {
   max-height: 200px;
   overflow: auto;
   font-size: 11px;
-}
-nav button {
-  font-size: 12px;
-  padding: 12px 2px;
 }
 .hero {
   background: linear-gradient(135deg, #0f766e, #0e8fa3);
@@ -328,4 +300,67 @@ nav button {
 }
 .fg input {
   width: 100%;
+}
+
+nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-width: 720px;
+  margin: auto;
+  display: flex;
+  gap: 2px;
+  padding: 10px 10px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: color-mix(in srgb, var(--card) 90%, transparent);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  border-top: 1px solid var(--bd);
+  border-radius: 24px 24px 0 0;
+  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.07);
+}
+nav button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  min-height: 60px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--mu);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+nav .ic {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 34px;
+  border-radius: 17px;
+  transition: background 0.2s, transform 0.15s;
+}
+nav svg {
+  width: 25px;
+  height: 25px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+nav button:active .ic {
+  transform: scale(0.92);
+}
+nav button.on {
+  color: var(--ac);
+  font-weight: 700;
+}
+nav button.on .ic {
+  background: color-mix(in srgb, var(--ac) 16%, transparent);
 }
