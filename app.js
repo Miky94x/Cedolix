@@ -248,6 +248,12 @@ function bSet() {
     a.click();
   };
 }
+const IC = {
+  m: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>',
+  f: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+  p: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>',
+  s: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h8M16 6h4M4 12h2M10 12h10M4 18h10M18 18h2"/><circle cx="14" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="18" r="2"/></svg>',
+};
 function vHome() {
   const n = new Date(),
     y = n.getFullYear(),
@@ -287,7 +293,7 @@ function vHome() {
   return `<div class="hero"><small>${GG[n.getDay()]} ${n.getDate()} ${MESI[m]} ${y}</small><h2>${gr}</h2><small>Saldo di ${MESI[pm.getMonth()]}</small><div class="big">${st.bal > 0 ? "+" : ""}${fmt(st.bal)} h</div><div class="bar"><i style="width:${pct}%"></i></div><small>${fmt(st.w + st.fe)} di ${fmt(st.e)} h previste · ${pct}%</small></div>
 <div class="card"><div class="row"><b>Oggi</b><span style="color:var(--mu);text-align:right">${stt}</span></div><div class="chips"><button class="b" id="qe">✓ Ore previste (${fmt(E)})</button><button class="b s" id="qf">Ferie</button><button class="b s" id="qm">Malattia</button><input type="number" step="0.25" id="qh" placeholder="Ore" value="${x.t ? "" : (x.h ?? "")}"></div></div>
 <div class="grid" style="margin-bottom:12px"><div class="k"><b>${f.sett == null ? "—" : fmt1(f.sett) + " sett."}</b><span>Ferie + permessi residui</span></div><div class="k"><b>${a ? a.y + " a " + a.m + " m" : "—"}</b><span>Anzianità</span></div><div class="k"><b>${nd ? nd.getDate() + " " + MESI[nd.getMonth()].slice(0, 3) : "—"}</b><span>Prossimo festivo${nh ? ": " + nh[1] : ""}</span></div><div class="k"><b>${lp && lp.netto ? fmt(lp.netto) + " €" : "—"}</b><span>Ultima busta${lp && lp.per ? " (" + lp.per + ")" : ""}</span></div></div>
-<div class="tiles"><button class="tile" data-go="m"><span>📅</span><b>Ore del mese</b><small>Inserisci e controlla</small></button><button class="tile" data-go="f"><span>🏖️</span><b>Ferie</b><small>Totali, usate, vecchie</small></button><button class="tile" data-go="p"><span>📄</span><b>Busta paga</b><small>Carica il PDF</small></button><button class="tile" data-go="s"><span>⚙️</span><b>Impostazioni</b><small>Orari, ferie, backup</small></button></div>`;
+<div class="tiles"><button class="tile" data-go="m"><span>${IC.m}</span><b>Ore del mese</b><small>Inserisci e controlla</small></button><button class="tile" data-go="f"><span>${IC.f}</span><b>Ferie</b><small>Totali, usate, vecchie</small></button><button class="tile" data-go="p"><span>${IC.p}</span><b>Busta paga</b><small>Carica il PDF</small></button><button class="tile" data-go="s"><span>${IC.s}</span><b>Impostazioni</b><small>Orari, ferie, backup</small></button></div>`;
 }
 function bHome() {
   const d = new Date(),

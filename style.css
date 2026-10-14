@@ -209,12 +209,26 @@ pre {
   font: inherit;
 }
 .tile span {
-  font-size: 26px;
-  display: block;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  color: var(--ac);
+  background: color-mix(in srgb, var(--ac) 14%, transparent);
+}
+.tile svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .tile b {
   display: block;
-  margin-top: 6px;
+  margin-top: 10px;
 }
 .tile small {
   color: var(--mu);
