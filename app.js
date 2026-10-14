@@ -45,7 +45,8 @@ const iso = (d) =>
   String(d.getMonth() + 1).padStart(2, "0") +
   "-" +
   String(d.getDate()).padStart(2, "0");
-const fmt = (n) => (Math.round(n * 100) / 100).toString().replace(".", ",");
+const fmt1 = (n) => (Math.round(n * 10) / 10).toString().replace(".", ","),
+  fmt = (n) => (Math.round(n * 100) / 100).toString().replace(".", ",");
 function easter(y) {
   const a = y % 19,
     b = Math.floor(y / 100),
@@ -136,7 +137,7 @@ function ferie() {
     fer = l.ferieSaldo || 0,
     pe = (l.permSaldo || 0) + (l.exSaldo || 0),
     ore = fer + pe - usati * d;
-  return { l, ore, gg: ore / d, usati, fer, pe };
+  return { l, ore, gg: ore / d, sett: wh() ? ore / wh() : null, usati, fer, pe };
 }
 function anz(s) {
   if (!s) return null;
@@ -219,11 +220,11 @@ function vFerie() {
     d = (v) => (v == null ? "—" : fmt(v));
   if (!l || f.ore == null)
     return `<h2>Ferie</h2><div class="card"><p style="color:var(--mu)">Carica una busta paga: ferie, permessi ed ex-festività vengono letti direttamente dal cedolino.</p></div>`;
-  return `<h2>Ferie</h2><div class="card"><div class="grid"><div class="k"><b>${fmt(f.gg)}</b><span>Giorni totali residui (ferie + permessi + ex-fest.)</span></div><div class="k"><b>${fmt(f.ore)} h</b><span>Ore totali residue</span></div>
+  return `<h2>Ferie</h2><div class="card"><div class="grid"><div class="k"><b>${fmt(f.gg)}</b><span>Giorni totali residui (ferie + permessi + ex-fest.)</span></div><div class="k"><b>${f.sett == null ? "—" : fmt1(f.sett)}</b><span>Settimane totali residue</span></div><div class="k"><b>${fmt(f.ore)} h</b><span>Ore totali residue</span></div>
 <div class="k"><b>${fmt(f.fer)} h</b><span>Ferie (anno scorso + corrente)</span></div><div class="k"><b>${fmt(f.pe)} h</b><span>Permessi + ex-festività</span></div>
 <div class="k"><b>${d(l.ferieAP)} h</b><span>Ferie residuo anno prec.</span></div><div class="k"><b>${d(l.ferieMat)} h</b><span>Ferie maturate quest'anno</span></div>
-<div class="k"><b>${d(l.ferieGodAnno)} h</b><span>Ferie godute da inizio anno</span></div><div class="k"><b>${f.usati}</b><span>Giorni di ferie segnati dopo la busta</span></div></div>
-<p style="color:var(--mu);font-size:13px">Totale = saldi dell'ultima busta (${l.per || "?"}) meno le ferie segnate nel calendario dopo quel mese. 1 giorno = ${fmt(std())} h.</p></div>`;
+<div class="k"><b>${d(l.ferieGodAnno)} h</b><span>Ferie godute da inizio anno</span></div></div>
+<p style="color:var(--mu);font-size:13px">Totale = saldi dell'ultima busta (${l.per || "?"}) meno le ferie segnate nel calendario dopo quel mese. Ferie segnate dopo la busta: ${f.usati}. 1 giorno = ${fmt(std())} h, 1 settimana = ${fmt(wh())} h.</p></div>`;
 }
 function vSet() {
   const s = S.set;
@@ -285,7 +286,7 @@ function vHome() {
   const nd = nh ? new Date(nh[0]) : null;
   return `<div class="hero"><small>${GG[n.getDay()]} ${n.getDate()} ${MESI[m]} ${y}</small><h2>${gr}</h2><small>Saldo di ${MESI[pm.getMonth()]}</small><div class="big">${st.bal > 0 ? "+" : ""}${fmt(st.bal)} h</div><div class="bar"><i style="width:${pct}%"></i></div><small>${fmt(st.w + st.fe)} di ${fmt(st.e)} h previste · ${pct}%</small></div>
 <div class="card"><div class="row"><b>Oggi</b><span style="color:var(--mu);text-align:right">${stt}</span></div><div class="chips"><button class="b" id="qe">✓ Ore previste (${fmt(E)})</button><button class="b s" id="qf">Ferie</button><button class="b s" id="qm">Malattia</button><input type="number" step="0.25" id="qh" placeholder="Ore" value="${x.t ? "" : (x.h ?? "")}"></div></div>
-<div class="grid" style="margin-bottom:12px"><div class="k"><b>${f.gg == null ? "—" : fmt(f.gg) + " g"}</b><span>Ferie + permessi residui</span></div><div class="k"><b>${a ? a.y + " a " + a.m + " m" : "—"}</b><span>Anzianità</span></div><div class="k"><b>${nd ? nd.getDate() + " " + MESI[nd.getMonth()].slice(0, 3) : "—"}</b><span>Prossimo festivo${nh ? ": " + nh[1] : ""}</span></div><div class="k"><b>${lp && lp.netto ? fmt(lp.netto) + " €" : "—"}</b><span>Ultima busta${lp && lp.per ? " (" + lp.per + ")" : ""}</span></div></div>
+<div class="grid" style="margin-bottom:12px"><div class="k"><b>${f.sett == null ? "—" : fmt1(f.sett) + " sett."}</b><span>Ferie + permessi residui</span></div><div class="k"><b>${a ? a.y + " a " + a.m + " m" : "—"}</b><span>Anzianità</span></div><div class="k"><b>${nd ? nd.getDate() + " " + MESI[nd.getMonth()].slice(0, 3) : "—"}</b><span>Prossimo festivo${nh ? ": " + nh[1] : ""}</span></div><div class="k"><b>${lp && lp.netto ? fmt(lp.netto) + " €" : "—"}</b><span>Ultima busta${lp && lp.per ? " (" + lp.per + ")" : ""}</span></div></div>
 <div class="tiles"><button class="tile" data-go="m"><span>📅</span><b>Ore del mese</b><small>Inserisci e controlla</small></button><button class="tile" data-go="f"><span>🏖️</span><b>Ferie</b><small>Totali, usate, vecchie</small></button><button class="tile" data-go="p"><span>📄</span><b>Busta paga</b><small>Carica il PDF</small></button><button class="tile" data-go="s"><span>⚙️</span><b>Impostazioni</b><small>Orari, ferie, backup</small></button></div>`;
 }
 function bHome() {
