@@ -1000,8 +1000,8 @@ const mn = (s) => s.replace(/\s+/g, "").toLowerCase(),
   money = /^-?[\d.]+,\d{2}\s*€?$/,
   N = (v) => (v == null || v === "" ? null : num(v)),
   esc = (v) => String(v).replace(/'/g, "&#39;").replace(/</g, "&lt;");
-async function readPdf2(f) {
-  const pdf = await pdfjsLib.getDocument({ data: await f.arrayBuffer() })
+async function readPdf2(buf) {
+  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf.slice(0)) })
       .promise,
     pg = [];
   for (let i = 1; i <= pdf.numPages; i++) {
@@ -1273,7 +1273,8 @@ function uploadModal(f) {
             u1.querySelector("#mc2").onclick = close;
           };
         try {
-          const pg = await readPdf2(f),
+          const buf = await f.arrayBuffer(),
+            pg = await readPdf2(buf),
             txt = pg.map((p) => p.txt).join("\n");
           if (txt.trim().length < 30)
             return fail(
@@ -1331,15 +1332,26 @@ function uploadModal(f) {
                 "Inserisci il periodo nel formato AAAA-MM (es. 2026-09).";
               return;
             }
+            try {
+              if (navigator.storage && navigator.storage.persist)
+                navigator.storage.persist().catch(() => {});
+              await pdfPut(o.id, buf.slice(0));
+              o.pdf = true;
+            } catch (err) {
+              if (!u2.dataset.w) {
+                u2.dataset.w = "1";
+                u2.querySelector("#uer").textContent =
+                  "Non riesco a conservare il PDF (" +
+                  ((err && err.name) || "errore") +
+                  "). Tocca di nuovo Salva busta per salvare solo i dati.";
+                return;
+              }
+            }
             if (o.hire && !S.set.hire) S.set.hire = o.hire;
             S.pay
               .filter((p) => p.per && p.per === o.per)
               .forEach((p) => pdfDel(p.id).catch(() => {}));
             S.pay = S.pay.filter((p) => !(p.per && p.per === o.per));
-            try {
-              await pdfPut(o.id, await f.arrayBuffer());
-              o.pdf = true;
-            } catch (err) {}
             S.pay.push(o);
             save();
             close();
