@@ -1,9 +1,10 @@
-const V = "cedolix-1.8.5",
+const V = "cedolix-1.9.0",
   LOCAL = ["./", "index.html", "style.css", "app.js", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"],
   OPT = ["icon-maskable-512.png"],
   CDN = [
     "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",
     "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js",
   ];
 // chiave di cache senza query (?v=...): una sola copia per file
 const key = (u) => u.origin + u.pathname;
