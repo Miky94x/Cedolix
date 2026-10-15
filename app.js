@@ -550,7 +550,7 @@ function vCal() {
       `<option value="${v}"${t === v ? " selected" : ""}>${l}</option>`;
   return `<div class="row"><button class="b s" id="pv">‹</button><h2>${MESI[m]} ${y}</h2><button class="b s" id="nx">›</button></div>
 <div class="card"><div class="cal">${["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"].map((g) => `<div class="wd">${g}</div>`).join("")}${c}</div></div>
-<div class="card"><b>Periodo di calcolo di ${MESI[m]}</b><div class="chips"><input type="date" id="ps" value="${ps}"><span>→</span><input type="date" id="pe" value="${pe}"><button class="b s" id="pr">Reimposta</button></div></div>
+<div class="card"><b>Periodo di calcolo di ${MESI[m]}</b><div class="chips"><input type="date" id="ps" value="${ps}"><span>→</span><input type="date" id="pe" value="${pe}"></div></div>
 <div class="card"><div class="row"><b>${GF[D.getDay()]} ${D.getDate()} ${MESI[D.getMonth()]}</b><small style="color:${H[sel] ? "#ef4444" : "var(--mu)"}">${H[sel] || "giorno tipo " + fmtH(E)}</small></div>
 <div class="chips"><select id="dt">${op("", "Lavoro")}${op("ferie", "Ferie")}${op("permesso", "Permesso")}${op("malattia", "Malattia")}</select>${t === "" ? `<button class="b" id="da">+ Aggiungi turno</button>` : `<button class="b" id="di">Inserisci</button>`}<button class="b s" id="dc">Cancella</button></div>${x.turni && !x.t ? `<small style="color:var(--mu);display:block;margin-top:8px">${tl(x.turni)}</small>` : ""}</div>
 <div class="card"><div class="grid"><div class="k"><b>${fmtH(st.w + st.fe)}</b><span>Ore effettive (incl. assenze)</span></div><div class="k"><b>${fmtH(st.e)}</b><span>Ore previste</span></div><div class="k"><b class="${st.bal >= 0 ? "pos" : "neg"}">${st.bal > 0 ? "+" : ""}${fmtH(st.bal)}</b><span>Saldo mese</span></div><div class="k"><b>${st.ex} / ${st.hol}</b><span>Ferie / festivi nel mese</span></div></div>
@@ -610,12 +610,6 @@ function bCal() {
     };
   $("#ps").onchange = (e) => sp("s", e.target.value);
   $("#pe").onchange = (e) => sp("e", e.target.value);
-  $("#pr").onclick = () => {
-    if (S.per) delete S.per[K];
-    save();
-    keep = 1;
-    render();
-  };
 }
 let last = null;
 function vPay() {
