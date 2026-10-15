@@ -1313,10 +1313,7 @@ function vPay2() {
 ${row("Ore ordinarie", fmtH(l.ore))}
 ${row("Ore straordinarie", l.straord ? fmtH(l.straord) : "—")}
 ${row("Paga oraria base", hr ? fmt(hr) + " €/h" : "—", hn)}
-${row("TFR accantonato al 31/12", eur(l.tfrFondo))}</details>
-<details class="card cl" data-c="fp"${op("fp")}><summary><h3 class="fh">Ferie e permessi</h3></summary>
-${row("Ferie residue", ore(l.ferieSaldo), l.ferieSaldo != null ? "≈ " + fmt(l.ferieSaldo / av) + " giorni" : "")}
-${row("Permessi ed ex-festività", ore(pe))}</details>`
+${row("TFR accantonato al 31/12", eur(l.tfrFondo))}</details>`
       : ""
   }
 <div class="card"><h3 class="fh">Riepilogo</h3>
