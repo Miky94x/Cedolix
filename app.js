@@ -256,11 +256,209 @@ function bSet() {
   };
 }
 const IC = {
+  e: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
   m: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>',
   f: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
   p: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>',
   s: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h8M16 6h4M4 12h2M10 12h10M4 18h10M18 18h2"/><circle cx="14" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="18" r="2"/></svg>',
 };
+const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1),
+  tl = (T) =>
+    T.map((t) => t.a + "–" + t.b + (t.p ? " (pausa " + t.p + "m)" : "")).join(" · ");
+function modal(html, mount) {
+  const o = document.createElement("div");
+  o.className = "ov";
+  o.innerHTML = `<div class="sheet">${html}</div>`;
+  const close = () => {
+    o.remove();
+    document.body.style.overflow = "";
+  };
+  o.onclick = (e) => {
+    if (e.target === o) close();
+  };
+  document.body.appendChild(o);
+  document.body.style.overflow = "hidden";
+  mount(o.querySelector(".sheet"), close);
+}
+function confirmBox(title, msg, ok, cb) {
+  modal(
+    `<h3>${title}</h3><p style="color:var(--mu);margin:0 0 16px">${msg}</p><div class="row"><button class="b s" id="mc">Annulla</button><button class="b dng" id="mo">${ok}</button></div>`,
+    (m, close) => {
+      m.querySelector("#mc").onclick = close;
+      m.querySelector("#mo").onclick = () => {
+        close();
+        cb();
+      };
+    },
+  );
+}
+function hoursModal(k) {
+  const d = pd(k),
+    x = S.days[k] || {},
+    T = (x.turni || []).map((t) => ({ a: t.a, b: t.b, p: t.p || "" }));
+  if (!T.length) T.push({ a: "", b: "", p: "" });
+  const tm = (v) => (v ? +v.slice(0, 2) * 60 + +v.slice(3, 5) : null),
+    mins = (t) => {
+      const a = tm(t.a),
+        b = tm(t.b);
+      if (a == null || b == null) return 0;
+      let m = b - a;
+      if (m < 0) m += 1440;
+      return Math.max(0, m - (+t.p || 0));
+    },
+    tot = () => T.reduce((z, t) => z + mins(t), 0),
+    rows = () =>
+      T.map(
+        (t, i) =>
+          `<div class="tr" data-i="${i}"><div class="tf"><label>Entrata</label><input type="time" data-f="a" value="${t.a}"></div><div class="tf"><label>Uscita</label><input type="time" data-f="b" value="${t.b}"></div><div class="tf"><label>Pausa (minuti)</label><input type="number" inputmode="numeric" min="0" step="5" data-f="p" placeholder="0" value="${t.p}"></div><div class="tf"><label>Durata</label><div class="row"><b class="td">${fmtH(mins(t) / 60)}</b>${T.length > 1 ? '<button class="b s" data-rm>✕</button>' : ""}</div></div></div>`,
+      ).join("");
+  const note =
+    x.h && !x.turni && !x.t
+      ? `<p style="color:var(--mu);font-size:13px;margin:0 0 10px">Questo giorno ha già ${fmtH(x.h)} registrate: salvando verranno sostituite dai turni.</p>`
+      : "";
+  modal(
+    `<h3>Aggiungi ore · ${GF[d.getDay()]} ${d.getDate()} ${MESI[d.getMonth()]}</h3>${note}<div id="tl"></div><button class="b s" id="ta" style="width:100%">+ Aggiungi turno</button><div class="tot"><span>Totale ore</span><b id="tt"></b></div><p id="er" class="neg" style="margin:0 0 10px"></p><div class="row"><button class="b s" id="mc">Annulla</button><button class="b" id="ms">Salva</button></div>`,
+    (m, close) => {
+      const L = m.querySelector("#tl"),
+        upd = () => {
+          m.querySelector("#tt").textContent = fmtH(tot() / 60);
+          L.querySelectorAll(".tr").forEach((r, i) => {
+            r.querySelector(".td").textContent = fmtH(mins(T[i]) / 60);
+          });
+        },
+        draw = () => {
+          L.innerHTML = rows();
+          upd();
+        };
+      L.oninput = (e) => {
+        const r = e.target.closest(".tr");
+        if (!r || !e.target.dataset.f) return;
+        T[+r.dataset.i][e.target.dataset.f] = e.target.value;
+        upd();
+      };
+      L.onclick = (e) => {
+        const b = e.target.closest("[data-rm]");
+        if (!b) return;
+        T.splice(+b.closest(".tr").dataset.i, 1);
+        draw();
+      };
+      m.querySelector("#ta").onclick = () => {
+        T.push({ a: "", b: "", p: "" });
+        draw();
+      };
+      m.querySelector("#mc").onclick = close;
+      m.querySelector("#ms").onclick = () => {
+        const V = T.filter((t) => t.a && t.b);
+        if (!V.length) {
+          m.querySelector("#er").textContent =
+            "Inserisci almeno un turno con entrata e uscita.";
+          return;
+        }
+        const y = (S.days[k] = S.days[k] || {});
+        delete y.t;
+        y.h = Math.round((V.reduce((z, t) => z + mins(t), 0) / 60) * 1e4) / 1e4;
+        y.turni = V.map((t) => ({ a: t.a, b: t.b, p: +t.p || 0 }));
+        save();
+        keep = 1;
+        close();
+        render();
+      };
+      draw();
+    },
+  );
+}
+const idb = () =>
+    new Promise((res, rej) => {
+      const r = indexedDB.open("oreLavoroPdf", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("pdf");
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    }),
+  idbDo = async (mode, f) => {
+    const db = await idb();
+    return new Promise((res, rej) => {
+      const t = db.transaction("pdf", mode),
+        q = f(t.objectStore("pdf"));
+      t.oncomplete = () => res(q && q.result);
+      t.onerror = () => rej(t.error);
+    });
+  },
+  pdfPut = (id, buf) => idbDo("readwrite", (o) => o.put(buf, id)),
+  pdfGet = (id) => idbDo("readonly", (o) => o.get(id)),
+  pdfDel = (id) => idbDo("readwrite", (o) => o.delete(id));
+async function viewPdf(id) {
+  const p = S.pay.find((q) => q.id == id);
+  if (!p) return;
+  const lab = p.per
+    ? cap(MESI[+p.per.slice(5, 7) - 1] || "") + " " + p.per.slice(0, 4)
+    : "Busta paga";
+  let buf = null;
+  if (p.pdf)
+    try {
+      buf = await pdfGet(p.id);
+    } catch (e) {}
+  if (!buf)
+    return modal(
+      `<h3>${lab}</h3><p style="color:var(--mu);margin:0 0 16px">Il PDF di questa busta non è stato conservato (è stata salvata prima di questa funzione). Ricarica il PDF dello stesso mese: i dati verranno aggiornati e il file resterà disponibile.</p><div class="row"><button class="b" id="mc">Ok</button></div>`,
+      (m, close) => {
+        m.querySelector("#mc").onclick = close;
+      },
+    );
+  modal(
+    `<div class="row" style="margin-bottom:12px"><h3 style="margin:0">${lab}</h3><div class="ba"><button class="b s" id="po">Apri</button><button class="b" id="mc">Chiudi</button></div></div><div class="pv" id="pv">Caricamento…</div>`,
+    async (m, close) => {
+      m.classList.add("big");
+      m.querySelector("#mc").onclick = close;
+      m.querySelector("#po").onclick = () =>
+        window.open(
+          URL.createObjectURL(new Blob([buf], { type: "application/pdf" })),
+          "_blank",
+        );
+      const box = m.querySelector("#pv");
+      try {
+        const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf.slice(0)) }).promise,
+          w = box.clientWidth || 320,
+          dpr = Math.min(2, window.devicePixelRatio || 1);
+        box.textContent = "";
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const pg = await pdf.getPage(i),
+            v0 = pg.getViewport({ scale: 1 }),
+            v = pg.getViewport({ scale: (w / v0.width) * dpr * 1.5 }),
+            c = document.createElement("canvas");
+          c.width = v.width;
+          c.height = v.height;
+          box.appendChild(c);
+          await pg.render({ canvasContext: c.getContext("2d"), viewport: v }).promise;
+        }
+      } catch (e) {
+        box.textContent = "Impossibile mostrare il PDF.";
+      }
+    },
+  );
+}
+function payList(P) {
+  if (!P.length) return "";
+  const g = {};
+  P.forEach((p) => {
+    const y = (p.per || "").slice(0, 4) || "Senza periodo";
+    (g[y] = g[y] || []).push(p);
+  });
+  return Object.keys(g)
+    .sort((a, b) => isNaN(a) - isNaN(b) || b - a)
+    .map((y) => {
+      const L = g[y],
+        tot = L.reduce((z, p) => z + (p.netto || 0), 0);
+      return (
+        `<div class='card'><div class='row' style='margin-bottom:6px'><b>${y}</b><small style='color:var(--mu)'>${L.length} ${L.length === 1 ? "busta" : "buste"}${tot ? " · netto " + fmt(tot) + " €" : ""}</small></div>` +
+        L.map(
+          (p) =>
+            `<div class='r'><div class='d'><b>${p.per ? cap(MESI[+p.per.slice(5, 7) - 1] || "?") : "Periodo ?"}</b><small>Netto ${p.netto ? fmt(p.netto) + " €" : "—"} · Lordo ${p.lordo ? fmt(p.lordo) + " €" : "—"} · Ore ${p.ore ? fmtH(p.ore) : "—"}</small></div><div class='ba'><button class='b s ey' data-view='${p.id}' aria-label='Apri busta'${p.pdf ? "" : " style='opacity:.5'"}>${IC.e}</button><button class='b s' data-del='${p.id}' aria-label='Elimina'>✕</button></div></div>`,
+        ).join("") +
+        "</div>"
+      );
+    })
+    .join("");
+}
 function vHome() {
   const n = new Date(),
     y = n.getFullYear(),
@@ -302,7 +500,7 @@ function vHome() {
           : "Nessuna ora registrata";
   const nd = nh ? new Date(nh[0]) : null;
   return `<div class="hero"><small>${GG[n.getDay()]} ${n.getDate()} ${MESI[m]} ${y}</small><small style="display:block;margin-top:12px">${hlab}</small><div class="big">${hbig}</div><div class="bar"><i style="width:${pct}%"></i></div><small>${hsub}</small></div>
-<div class="card"><div class="row"><b>Oggi</b><span style="color:var(--mu);text-align:right">${stt}</span></div><div class="chips"><button class="b" id="qe">✓ Ore previste (${fmtH(E)})</button><button class="b s" id="qf">Ferie</button><button class="b s" id="qm">Malattia</button><input type="number" step="0.25" id="qh" placeholder="Ore" value="${x.t ? "" : (x.h ?? "")}"></div></div>
+<div class="card"><div class="row"><b>Oggi</b><span style="color:var(--mu);text-align:right">${stt}</span></div><div class="chips"><button class="b" id="qa">+ Aggiungi ore</button><button class="b s" id="qe">✓ Ore previste (${fmtH(E)})</button><button class="b s" id="qf">Ferie</button><button class="b s" id="qm">Malattia</button><input type="number" step="0.25" id="qh" placeholder="Ore" value="${x.t ? "" : (x.h ?? "")}"></div>${x.turni && !x.t ? `<small style="color:var(--mu);display:block;margin-top:8px">${tl(x.turni)}</small>` : ""}</div>
 <div class="grid" style="margin-bottom:12px"><div class="k"><b>${f.sett == null ? "—" : fmt1(f.sett) + " sett."}</b><span>Ferie + permessi residui</span></div><div class="k"><b>${a ? a.y + " a " + a.m + " m" : "—"}</b><span>Anzianità</span></div><div class="k"><b>${nd ? nd.getDate() + " " + MESI[nd.getMonth()].slice(0, 3) : "—"}</b><span>Prossimo festivo${nh ? ": " + nh[1] : ""}</span></div><div class="k"><b>${lp && lp.netto ? fmt(lp.netto) + " €" : "—"}</b><span>Ultima busta${lp && lp.per ? " (" + lp.per + ")" : ""}</span></div></div>
 <div class="tiles"><button class="tile" data-go="m"><span>${IC.m}</span><b>Ore del mese</b><small>Inserisci e controlla</small></button><button class="tile" data-go="f"><span>${IC.f}</span><b>Ferie</b><small>Totali, usate, vecchie</small></button><button class="tile" data-go="p"><span>${IC.p}</span><b>Busta paga</b><small>Carica il PDF</small></button><button class="tile" data-go="s"><span>${IC.s}</span><b>Impostazioni</b><small>Orari, ferie, backup</small></button></div>`;
 }
@@ -316,6 +514,7 @@ function bHome() {
       save();
       render();
     };
+  $("#qa").onclick = () => hoursModal(k);
   $("#qe").onclick = () => set({ h: E });
   $("#qf").onclick = () => set({ t: "ferie" });
   $("#qm").onclick = () => set({ t: "malattia" });
@@ -373,7 +572,7 @@ function vCal() {
 <div class="card"><div class="cal">${["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"].map((g) => `<div class="wd">${g}</div>`).join("")}${c}</div></div>
 <div class="card"><b>Periodo di calcolo di ${MESI[m]}</b><div class="chips"><input type="date" id="ps" value="${ps}"><span>→</span><input type="date" id="pe" value="${pe}"><button class="b s" id="pr">Reimposta</button></div></div>
 <div class="card"><div class="row"><b>${GF[D.getDay()]} ${D.getDate()} ${MESI[D.getMonth()]}</b><small style="color:${H[sel] ? "#ef4444" : "var(--mu)"}">${H[sel] || "giorno tipo " + fmtH(E)}</small></div>
-<div class="chips"><select id="dt">${op("", "Lavoro")}${op("ferie", "Ferie")}${op("permesso", "Permesso")}${op("malattia", "Malattia")}</select><input type="number" step="0.25" min="0" max="24" id="dh" placeholder="${fmt(E)}" value="${x.h ?? ""}"><button class="b" id="de">✓ Ore previste</button><button class="b s" id="dc">Cancella</button></div></div>
+<div class="chips"><select id="dt">${op("", "Lavoro")}${op("ferie", "Ferie")}${op("permesso", "Permesso")}${op("malattia", "Malattia")}</select><input type="number" step="0.25" min="0" max="24" id="dh" placeholder="${fmt(E)}" value="${x.h ?? ""}"><button class="b" id="da">+ Aggiungi ore</button><button class="b s" id="de">✓ Ore previste</button><button class="b s" id="dc">Cancella</button></div>${x.turni && !x.t ? `<small style="color:var(--mu);display:block;margin-top:8px">${tl(x.turni)}</small>` : ""}</div>
 <div class="card"><div class="grid"><div class="k"><b>${fmtH(st.w + st.fe)}</b><span>Ore effettive (incl. assenze)</span></div><div class="k"><b>${fmtH(st.e)}</b><span>Ore previste</span></div><div class="k"><b class="${st.bal >= 0 ? "pos" : "neg"}">${st.bal > 0 ? "+" : ""}${fmtH(st.bal)}</b><span>Saldo mese</span></div><div class="k"><b>${st.ex} / ${st.hol}</b><span>Ferie / festivi nel mese</span></div></div>
 <small style="color:var(--mu)">Periodo: ${P.s.getDate()} ${MESI[P.s.getMonth()]} → ${P.e.getDate()} ${MESI[P.e.getMonth()]} · giorni fuori periodo sbiaditi · rosso = festivi e domeniche</small></div>`;
 }
@@ -398,6 +597,7 @@ function bCal() {
     upd = (f) => {
       const x = (S.days[sel] = S.days[sel] || {});
       f(x);
+      delete x.turni;
       if (!x.h && !x.t) delete S.days[sel];
       save();
       keep = 1;
@@ -416,6 +616,7 @@ function bCal() {
       x.t = undefined;
       x.h = E;
     });
+  $("#da").onclick = () => hoursModal(sel);
   $("#dc").onclick = () => {
     delete S.days[sel];
     save();
@@ -773,20 +974,33 @@ function vPay2() {
     d = (v) => (v == null ? "—" : fmt(v)),
     hr = l && (l.oraria || (l.lordo && l.ore ? (l.lordo - (l.straordImp || 0)) / (l.ore + (l.ferieGod || 0) + (l.exGod || 0)) : null)),
     hn = !l ? "" : l.oraria ? "dalla tariffa in busta" : l.straord && !l.straordImp ? "inserisci importo straordinari" : "(lordo − straord.) ÷ ore pagate";
-  return `<h2>Busta paga</h2><div class='card'><input type='file' id='pf' accept='application/pdf'><p style='color:var(--mu);font-size:13px'>Carica il PDF della busta (anche di 2 pagine). Resta sul tuo dispositivo; controlla i campi prima di salvare.</p><div id='res'></div></div>
+  return `<h2>Busta paga</h2><div class='card'><input type='file' id='pf' accept='application/pdf'><p style='color:var(--mu);font-size:13px'>Carica il PDF della busta (anche di 2 pagine). Viene conservato solo sul tuo dispositivo, così puoi riaprirlo con l'occhio; controlla i campi prima di salvare.</p><div id='res'></div></div>
 <div class='card'><div class='grid'><div class='k'><b>${a ? a.y + " a " + a.m + " m " + a.d + " g" : "—"}</b><span>Anzianità${a ? " (" + a.tot + " giorni)" : " (carica una busta)"}</span></div><div class='k'><b>${P.length}</b><span>Buste salvate</span></div><div class='k'><b>${n.length ? fmt(tot / n.length) + " €" : "—"}</b><span>Netto medio</span></div><div class='k'><b>${n.length ? fmt(tot) + " €" : "—"}</b><span>Netto totale salvato</span></div></div></div>
 ${l ? `<div class='card'><b>Ultima busta (${l.per || "?"})</b><div class='grid' style='margin-top:8px'><div class='k'><b>${d(l.netto)} €</b><span>Netto del mese</span></div><div class='k'><b>${fmtH(l.ferieSaldo)}</b><span>Ferie residue${l.ferieSaldo != null ? " ≈ " + fmt(l.ferieSaldo / av) + " giorni" : ""}</span></div><div class='k'><b>${l.permSaldo == null && l.exSaldo == null ? "—" : fmtH((l.permSaldo || 0) + (l.exSaldo || 0))}</b><span>Permessi + ex-festività</span></div><div class='k'><b>${d(l.tfrFondo)} €</b><span>TFR accantonato al 31/12</span></div><div class='k'><b>${fmtH(l.ore)}</b><span>Ore ordinarie${l.straord ? " + " + fmtH(l.straord) + " suppl." : ""}</span></div><div class='k'><b>${d(l.tratt)} €</b><span>Trattenute</span></div><div class='k'><b>${hr ? fmt(hr) + " €/h" : "—"}</b><span>Paga oraria base (${hn})</span></div></div></div>` : ""}
-${P.length ? `<div class='card'>${P.map((p) => `<div class='r'><div class='d'><b>${p.per || "Periodo ?"}</b><small>Netto ${p.netto ? fmt(p.netto) + " €" : "—"} · Lordo ${p.lordo ? fmt(p.lordo) + " €" : "—"} · Ore ${p.ore ? fmtH(p.ore) : "—"}</small></div><button class='b s' data-del='${p.id}'>✕</button></div>`).join("")}</div>` : ""}`;
+${payList(P)}`;
 }
 function bPay2() {
   document.querySelectorAll("[data-del]").forEach(
     (b) =>
       (b.onclick = () => {
-        S.pay = S.pay.filter((p) => p.id != b.dataset.del);
-        save();
-        render();
+        const p = S.pay.find((q) => q.id == b.dataset.del),
+          lab = p && p.per ? cap(MESI[+p.per.slice(5, 7) - 1] || "") + " " + p.per.slice(0, 4) : "senza periodo";
+        confirmBox(
+          "Eliminare la busta paga?",
+          `Stai per eliminare la busta di <b>${lab}</b>. L'operazione non si può annullare.`,
+          "Elimina",
+          () => {
+            if (p) pdfDel(p.id).catch(() => {});
+            S.pay = S.pay.filter((q) => q.id != b.dataset.del);
+            save();
+            render();
+          },
+        );
       }),
   );
+  document
+    .querySelectorAll("[data-view]")
+    .forEach((b) => (b.onclick = () => viewPdf(b.dataset.view)));
   $("#pf").onchange = async (e) => {
     const f = e.target.files[0];
     if (!f) return;
@@ -807,7 +1021,7 @@ function bPay2() {
             `<div><label>${l}</label><input data-p='${k}' value='${R[k] == null ? "" : TXT.includes(k) ? esc(R[k]) : String(R[k]).replace(".", ",")}'></div>`,
         ).join("") +
         `</div><div class='row' style='margin-top:12px'><button class='b' id='sp'>Salva busta</button></div><details><summary>Testo estratto</summary><pre>${esc(txt)}</pre></details>`;
-      $("#sp").onclick = () => {
+      $("#sp").onclick = async () => {
         const o = { id: Date.now() };
         document.querySelectorAll("[data-p]").forEach((i) => {
           const k = i.dataset.p,
@@ -821,7 +1035,14 @@ function bPay2() {
                 : parseFloat(v);
         });
         if (o.hire && !S.set.hire) S.set.hire = o.hire;
+        S.pay
+          .filter((p) => p.per && p.per === o.per)
+          .forEach((p) => pdfDel(p.id).catch(() => {}));
         S.pay = S.pay.filter((p) => !(p.per && p.per === o.per));
+        try {
+          await pdfPut(o.id, await f.arrayBuffer());
+          o.pdf = true;
+        } catch (err) {}
         S.pay.push(o);
         save();
         render();

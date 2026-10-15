@@ -378,3 +378,105 @@ nav button.on {
 nav button.on .ic {
   background: color-mix(in srgb, var(--ac) 16%, transparent);
 }
+
+.ov {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.sheet {
+  background: var(--card);
+  color: var(--tx);
+  width: 100%;
+  max-width: 720px;
+  max-height: 92vh;
+  overflow: auto;
+  border-radius: 22px 22px 0 0;
+  padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+}
+.sheet h3 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+.sheet .row .b {
+  flex: 1;
+}
+button.b.dng {
+  background: #dc2626;
+  color: #fff;
+}
+.tr {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+  border: 1px solid var(--bd);
+  border-radius: 14px;
+  background: var(--bg);
+}
+.tr label {
+  margin: 0 0 3px;
+}
+.tr input,
+.tr input[type="number"] {
+  width: 100%;
+}
+.td {
+  font-size: 18px;
+}
+.sheet .tr .row .b {
+  flex: none;
+  padding: 6px 12px;
+}
+.tot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 14px 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--bg);
+}
+.tot b {
+  font-size: 22px;
+  color: var(--ac);
+}
+
+.ba {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.sheet .ba .b {
+  flex: none;
+}
+.ey {
+  display: grid;
+  place-items: center;
+}
+.ey svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.sheet.big {
+  height: 92vh;
+}
+.pv canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-bottom: 10px;
+  border: 1px solid var(--bd);
+  border-radius: 6px;
+  background: #fff;
+}
