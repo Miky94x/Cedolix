@@ -1,4 +1,4 @@
-const V = "cedolix-1.10.2",
+const V = "cedolix-1.10.13",
   LOCAL = [
     "./",
     "index.html",
@@ -43,27 +43,27 @@ self.addEventListener("fetch", (e) => {
   if (r.method !== "GET") return;
   const u = new URL(r.url);
   if (u.origin === location.origin) {
-    // rete prima, cache se offline
+    // rete prima (max 3 secondi), poi cache
+    const fb = () =>
+        caches
+          .match(key(u))
+          .then(
+            (m) =>
+              m || (r.mode === "navigate" ? caches.match("index.html") : null),
+          ),
+      net = fetch(r).then((res) => {
+        if (res.ok) {
+          const cp = res.clone();
+          caches.open(V).then((c) => c.put(key(u), cp));
+        }
+        return res;
+      }),
+      to = new Promise((ok) => setTimeout(() => ok(null), 3000));
+    e.waitUntil(net.catch(() => {}));
     e.respondWith(
-      fetch(r)
-        .then((res) => {
-          if (res.ok) {
-            const cp = res.clone();
-            caches.open(V).then((c) => c.put(key(u), cp));
-          }
-          return res;
-        })
-        .catch(() =>
-          caches
-            .match(key(u))
-            .then(
-              (m) =>
-                m ||
-                (r.mode === "navigate"
-                  ? caches.match("index.html")
-                  : Response.error()),
-            ),
-        ),
+      Promise.race([net, to])
+        .then((res) => res || fb().then((m) => m || net))
+        .catch(() => fb().then((m) => m || Response.error())),
     );
   } else {
     e.respondWith(
