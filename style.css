@@ -256,6 +256,18 @@ pre {
 .dy.out {
   opacity: 0.35;
 }
+.dact {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+}
+.dact select {
+  flex: 1;
+}
+.dact .b.s {
+  width: 100%;
+}
 .fg {
   display: grid;
   grid-template-columns: 1fr 1fr;
