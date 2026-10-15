@@ -655,3 +655,4 @@ pre {
 .cps i,.chh i{position:absolute;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.35),0 2px 6px rgba(0,0,0,.35);pointer-events:none}
 .chh i{top:50%}
 .cpv{width:48px;height:42px;border-radius:10px;border:1px solid var(--bd);flex:none}
+html{background:var(--bg)}
