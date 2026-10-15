@@ -344,7 +344,7 @@ nav {
   display: flex;
   gap: 2px;
   padding: 10px 10px calc(12px + env(safe-area-inset-bottom, 0px));
-  background: color-mix(in srgb, var(--ac) 9%, color-mix(in srgb, var(--card) 92%, transparent));
+  background: color-mix(in srgb, var(--card) 90%, transparent);
   -webkit-backdrop-filter: blur(18px);
   backdrop-filter: blur(18px);
   border-top: 1px solid var(--bd);
@@ -648,7 +648,10 @@ pre {
 .set .hd{margin:18px 0 4px;padding:14px;border-radius:12px;background:var(--bg)}
 .set .hd span{display:block;color:var(--mu);font-size:16px}
 .set .hd b{display:block;margin-top:4px;font-size:26px}
-.set label.tpk{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:18px 0 0;padding:12px 14px;border:1px solid var(--bd);border-radius:12px;background:var(--bg);color:var(--tx);font-size:18px;font-weight:600;cursor:pointer}
-.set label.tpk{position:relative}
 .set .tpk i{width:56px;height:38px;border-radius:10px;border:1px solid var(--bd);flex:none}
-.set .tpk input[type="color"]{position:absolute;inset:0;width:100%;height:100%;opacity:0;padding:0;border:0;cursor:pointer}
+.set button.tpk{display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px;margin:18px 0 0;padding:12px 14px;border:1px solid var(--bd);border-radius:12px;background:var(--bg);color:var(--tx);font:inherit;font-size:18px;font-weight:600;cursor:pointer}
+.cps{position:relative;height:210px;border-radius:14px;touch-action:none;cursor:crosshair}
+.chh{position:relative;height:30px;margin-top:16px;border-radius:15px;touch-action:none;background:linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)}
+.cps i,.chh i{position:absolute;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.35),0 2px 6px rgba(0,0,0,.35);pointer-events:none}
+.chh i{top:50%}
+.cpv{width:48px;height:42px;border-radius:10px;border:1px solid var(--bd);flex:none}

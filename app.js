@@ -266,9 +266,76 @@ function vSet() {
   const s = S.set;
   return `<h2>Impostazioni</h2><div class="card set"><label>Ore settimanali da contratto</label><input type="number" step="0.25" id="wh" value="${s.wh}">
 <label>Santo patrono</label><input type="date" id="pa" style="width:100%" value="${s.patrono ? new Date().getFullYear() + "-" + s.patrono : ""}">
-<label class="tpk"><span>Colore tema</span><i id="tsw" style="background:${s.tema || "#0f766e"}"></i><input type="color" id="tc" value="${s.tema || "#0f766e"}"></label>
+<button type="button" class="tpk" id="tc"><span>Colore tema</span><i id="tsw" style="background:${s.tema || "#0f766e"}"></i></button>
 <div class="hd"><span>Data di assunzione</span><b>${s.hire ? s.hire.split("-").reverse().join("/") : "verrà letta dalla prima busta paga caricata"}</b></div>
 <div class="row" style="margin-top:14px"><button class="b s" id="tr">Ripristina colore</button><button class="b" id="sv">Salva</button></div><p id="ms" style="color:var(--ac);font-size:17px"></p></div>`;
+}
+function colorModal(init, onChange) {
+  const cl = (v) => Math.max(0, Math.min(1, v)),
+    toRgb = (h, s, v) => {
+      const c = v * s,
+        x = c * (1 - Math.abs(((h / 60) % 2) - 1)),
+        m = v - c,
+        [r, g, b] = [[c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x]][Math.min(5, Math.floor(h / 60))];
+      return [r + m, g + m, b + m];
+    },
+    toHex = (h, s, v) =>
+      "#" + toRgb(h, s, v).map((x) => Math.round(x * 255).toString(16).padStart(2, "0")).join(""),
+    toHsv = (hex) => {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255),
+        mx = Math.max(r, g, b),
+        d = mx - Math.min(r, g, b);
+      let h = 0;
+      if (d) h = mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+      return [h * 60, mx ? d / mx : 0, mx];
+    };
+  let [H, Sa, V] = toHsv(init);
+  modal(
+    `<h3>Colore tema</h3><div class="cps" id="cs"><i id="ck"></i></div><div class="chh" id="ch"><i id="chk"></i></div><div class="row" style="margin:16px 0"><i class="cpv" id="cp"></i><input id="cx" maxlength="7" autocapitalize="off" autocomplete="off" spellcheck="false" style="flex:1;min-width:0"></div><div class="row"><button class="b" id="cok">Fine</button></div>`,
+    (m, close) => {
+      const q = (i) => m.querySelector(i),
+        upd = (skipInput) => {
+          const hex = toHex(H, Sa, V);
+          q("#cs").style.background = `linear-gradient(to top,#000,transparent),linear-gradient(to right,#fff,${toHex(H, 1, 1)})`;
+          q("#ck").style.left = Sa * 100 + "%";
+          q("#ck").style.top = (1 - V) * 100 + "%";
+          q("#chk").style.left = (H / 360) * 100 + "%";
+          q("#cp").style.background = hex;
+          if (!skipInput) q("#cx").value = hex;
+          onChange(hex);
+        },
+        drag = (el, fn) => {
+          const mv = (e) => {
+            const r = el.getBoundingClientRect();
+            fn(cl((e.clientX - r.left) / r.width), cl((e.clientY - r.top) / r.height));
+            upd();
+          };
+          el.onpointerdown = (e) => {
+            el.setPointerCapture(e.pointerId);
+            mv(e);
+            el.onpointermove = mv;
+          };
+          el.onpointerup = el.onpointercancel = () => (el.onpointermove = null);
+        };
+      drag(q("#cs"), (x, y) => {
+        Sa = x;
+        V = 1 - y;
+      });
+      drag(q("#ch"), (x) => {
+        H = Math.min(359.99, x * 360);
+      });
+      q("#cx").oninput = (e) => {
+        let v = e.target.value.trim();
+        if (v[0] !== "#") v = "#" + v;
+        if (/^#[0-9a-f]{6}$/i.test(v)) {
+          [H, Sa, V] = toHsv(v);
+          upd(true);
+        }
+      };
+      q("#cok").onclick = close;
+      upd();
+    },
+  );
 }
 function applyTema() {
   const c = S.set.tema,
@@ -290,12 +357,14 @@ function applyTema() {
   }
 }
 function bSet() {
-  $("#tc").oninput = (e) => {
-    S.set.tema = e.target.value;
-    $("#tsw").style.background = e.target.value;
-    applyTema();
-    save();
-  };
+  $("#tc").onclick = () =>
+    colorModal(S.set.tema || "#0f766e", (hex) => {
+      S.set.tema = hex;
+      applyTema();
+      save();
+      const w = $("#tsw");
+      if (w) w.style.background = hex;
+    });
   $("#tr").onclick = () => {
     delete S.set.tema;
     applyTema();
