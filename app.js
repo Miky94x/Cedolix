@@ -278,6 +278,7 @@ const IC = {
   m: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>',
   f: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
   p: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>',
+  d: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
   s: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h8M16 6h4M4 12h2M10 12h10M4 18h10M18 18h2"/><circle cx="14" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="18" r="2"/></svg>',
 };
 const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1),
@@ -454,6 +455,41 @@ async function viewPdf(id) {
     },
   );
 }
+const DET = [
+  ["Busta", [["azienda", "Azienda", "t"], ["liv", "Livello", "t"], ["qual", "Qualifica", "t"], ["pt", "Part time", "%"], ["hire", "Data assunzione", "d"]]],
+  ["Retribuzione", [["lordo", "Totale competenze", "e"], ["tratt", "Totale trattenute", "e"], ["netto", "Netto del mese", "e"], ["oraria", "Paga oraria base", "eh"], ["ore", "Ore ordinarie lavorate", "o"], ["straord", "Ore suppl./straord.", "o"], ["straordImp", "Importo straord./suppl.", "e"], ["ggLav", "Giorni lavorati", "n"], ["festOre", "Ore festivo lavorate", "o"]]],
+  ["Ferie", [["ferieGod", "Godute nel mese", "o"], ["ferieAP", "Residuo AP", "o"], ["ferieMat", "Maturate", "o"], ["ferieGodAnno", "Godute da inizio anno", "o"], ["ferieSaldo", "Saldo", "o"]]],
+  ["Permessi ed ex-festività", [["exGod", "Godute nel mese", "o"], ["exAP", "Ex-festività residuo AP", "o"], ["exMat", "Ex-festività maturate", "o"], ["exGodAnno", "Ex-festività godute da inizio anno", "o"], ["exSaldo", "Ex-festività saldo", "o"], ["permAP", "Permessi residuo AP", "o"], ["permMat", "Permessi maturati", "o"], ["permGodAnno", "Permessi goduti da inizio anno", "o"], ["permSaldo", "Permessi saldo", "o"]]],
+  ["TFR", [["tfrFondo", "Fondo al 31/12", "e"], ["tfrQuota", "Quota del mese", "e"], ["tfrAnno", "Quota anno", "e"]]],
+  ["Imposte", [["impIrpef", "Imponibile IRPEF mese", "e"], ["irpef", "Ritenute IRPEF mese", "e"], ["progImpInps", "Progressivo imponibile INPS", "e"], ["progImpIrpef", "Progressivo imponibile IRPEF", "e"], ["progIrpef", "IRPEF pagata da inizio anno", "e"]]],
+];
+function detPay(id) {
+  const p = S.pay.find((q) => q.id == id);
+  if (!p) return;
+  const lab = p.per
+      ? cap(MESI[+p.per.slice(5, 7) - 1] || "") + " " + p.per.slice(0, 4)
+      : "Busta paga",
+    fv = (v, t) =>
+      t === "e" ? fmt(v) + " €"
+      : t === "eh" ? fmt(v) + " €/h"
+      : t === "o" ? fmt(v) + " ore"
+      : t === "%" ? fmt(v) + "%"
+      : t === "d" ? String(v).split("-").reverse().join("/")
+      : t === "n" ? String(v)
+      : esc(v),
+    html = DET.map(([tit, F]) => {
+      const R = F.filter(([k]) => p[k] != null && p[k] !== "")
+        .map(([k, l, t]) => `<div class="fr"><div>${l}</div><b style="white-space:normal;text-align:right">${fv(p[k], t)}</b></div>`)
+        .join("");
+      return R ? `<div class="card"><h3 class="fh">${tit}</h3>${R}</div>` : "";
+    }).join("");
+  modal(
+    `<div class="row" style="margin-bottom:12px"><h3 style="margin:0">Dettaglio · ${lab}</h3><div class="ba"><button class="b" id="mc">Chiudi</button></div></div>${html || "<p style='color:var(--mu)'>Nessun dato salvato per questa busta.</p>"}`,
+    (m, close) => {
+      m.querySelector("#mc").onclick = close;
+    },
+  );
+}
 function payList(P) {
   if (!P.length) return "";
   const g = {};
@@ -470,7 +506,7 @@ function payList(P) {
         `<div class='card'><div class='row' style='margin-bottom:6px'><b>${y}</b><small style='color:var(--mu)'>${L.length} ${L.length === 1 ? "busta" : "buste"}${tot ? " · netto " + fmt(tot) + " €" : ""}</small></div>` +
         L.map(
           (p) =>
-            `<div class='r'><div class='d'><b>${p.per ? cap(MESI[+p.per.slice(5, 7) - 1] || "?") : "Periodo ?"}</b><small>Netto ${p.netto ? fmt(p.netto) + " €" : "—"} · Lordo ${p.lordo ? fmt(p.lordo) + " €" : "—"} · Ore ${p.ore ? fmtH(p.ore) : "—"}</small></div><div class='ba'><button class='b s ey' data-view='${p.id}' aria-label='Apri busta'${p.pdf ? "" : " style='opacity:.5'"}>${IC.e}</button><button class='b s' data-del='${p.id}' aria-label='Elimina'>✕</button></div></div>`,
+            `<div class='r'><div class='d'><b>${p.per ? cap(MESI[+p.per.slice(5, 7) - 1] || "?") : "Periodo ?"}</b><small>Netto ${p.netto ? fmt(p.netto) + " €" : "—"} · Lordo ${p.lordo ? fmt(p.lordo) + " €" : "—"} · Ore ${p.ore ? fmtH(p.ore) : "—"}</small></div><div class='ba'><button class='b s ey' data-det='${p.id}' aria-label='Dettaglio busta' title='Dettaglio'>${IC.d}</button><button class='b s ey' data-view='${p.id}' aria-label='Apri busta'${p.pdf ? "" : " style='opacity:.5'"}>${IC.e}</button><button class='b s' data-del='${p.id}' aria-label='Elimina'>✕</button></div></div>`,
         ).join("") +
         "</div>"
       );
@@ -973,12 +1009,52 @@ function vPay2() {
     n = P.filter((p) => p.netto),
     tot = n.reduce((s, p) => s + p.netto, 0),
     av = std() || 8,
-    d = (v) => (v == null ? "—" : fmt(v)),
-    hr = l && (l.oraria || (l.lordo && l.ore ? (l.lordo - (l.straordImp || 0)) / (l.ore + (l.ferieGod || 0) + (l.exGod || 0)) : null)),
-    hn = !l ? "" : l.oraria ? "dalla tariffa in busta" : l.straord && !l.straordImp ? "inserisci importo straordinari" : "(lordo − straord.) ÷ ore pagate";
-  return `<h2>Busta paga</h2><div class='card'><input type='file' id='pf' accept='application/pdf'><p style='color:var(--mu);font-size:13px'>Carica il PDF della busta (anche di 2 pagine). Viene conservato solo sul tuo dispositivo, così puoi riaprirlo con l'occhio; controlla i campi prima di salvare.</p><div id='res'></div></div>
-<div class='card'><div class='grid'><div class='k'><b>${a ? a.y + " a " + a.m + " m " + a.d + " g" : "—"}</b><span>Anzianità${a ? " (" + a.tot + " giorni)" : " (carica una busta)"}</span></div><div class='k'><b>${P.length}</b><span>Buste salvate</span></div><div class='k'><b>${n.length ? fmt(tot / n.length) + " €" : "—"}</b><span>Netto medio</span></div><div class='k'><b>${n.length ? fmt(tot) + " €" : "—"}</b><span>Netto totale salvato</span></div></div></div>
-${l ? `<div class='card'><b>Ultima busta (${l.per || "?"})</b><div class='grid' style='margin-top:8px'><div class='k'><b>${d(l.netto)} €</b><span>Netto del mese</span></div><div class='k'><b>${fmtH(l.ferieSaldo)}</b><span>Ferie residue${l.ferieSaldo != null ? " ≈ " + fmt(l.ferieSaldo / av) + " giorni" : ""}</span></div><div class='k'><b>${l.permSaldo == null && l.exSaldo == null ? "—" : fmtH((l.permSaldo || 0) + (l.exSaldo || 0))}</b><span>Permessi + ex-festività</span></div><div class='k'><b>${d(l.tfrFondo)} €</b><span>TFR accantonato al 31/12</span></div><div class='k'><b>${fmtH(l.ore)}</b><span>Ore ordinarie${l.straord ? " + " + fmtH(l.straord) + " suppl." : ""}</span></div><div class='k'><b>${d(l.tratt)} €</b><span>Trattenute</span></div><div class='k'><b>${hr ? fmt(hr) + " €/h" : "—"}</b><span>Paga oraria base (${hn})</span></div></div></div>` : ""}
+    eur = (v) => (v == null ? "—" : fmt(v) + " €"),
+    ore = (v) => (v == null ? "—" : fmt(v) + " ore"),
+    row = (lab, val, sub) =>
+      `<div class="fr"><div>${lab}${sub ? `<small>${sub}</small>` : ""}</div><b>${val}</b></div>`,
+    hr =
+      l &&
+      (l.oraria ||
+        (l.lordo && l.ore
+          ? (l.lordo - (l.straordImp || 0)) /
+            (l.ore + (l.ferieGod || 0) + (l.exGod || 0))
+          : null)),
+    hn = !l
+      ? ""
+      : l.oraria
+        ? "dalla tariffa in busta"
+        : l.straord && !l.straordImp
+          ? "inserisci importo straordinari"
+          : "(lordo − straord.) ÷ ore pagate",
+    mese =
+      l && l.per
+        ? cap(MESI[+l.per.slice(5, 7) - 1] || "") + " " + l.per.slice(0, 4)
+        : "periodo ?",
+    pe =
+      l && (l.permSaldo != null || l.exSaldo != null)
+        ? (l.permSaldo || 0) + (l.exSaldo || 0)
+        : null;
+  return `${
+    l
+      ? `<div class="hero"><small>Ultima busta · ${mese}</small><div class="big">${eur(l.netto)}</div><small>Netto del mese</small></div>
+<div class="card"><h3 class="fh">Dettaglio ultima busta</h3>
+${row("Totale competenze", eur(l.lordo))}
+${row("Trattenute", eur(l.tratt))}
+${row("Ore ordinarie", fmtH(l.ore) + (l.straord ? " + " + fmtH(l.straord) + " suppl." : ""))}
+${row("Paga oraria base", hr ? fmt(hr) + " €/h" : "—", hn)}</div>
+<div class="card"><h3 class="fh">Ferie, permessi e TFR</h3>
+${row("Ferie residue", ore(l.ferieSaldo), l.ferieSaldo != null ? "≈ " + fmt(l.ferieSaldo / av) + " giorni" : "")}
+${row("Permessi ed ex-festività", ore(pe))}
+${row("TFR accantonato al 31/12", eur(l.tfrFondo))}</div>`
+      : ""
+  }
+<div class="card"><h3 class="fh">Riepilogo</h3>
+${row("Anzianità", a ? a.y + " a " + a.m + " m " + a.d + " g" : "—", a ? a.tot + " giorni" : "carica una busta")}
+${row("Buste salvate", P.length)}
+${row("Netto medio", n.length ? eur(tot / n.length) : "—")}
+${row("Netto totale salvato", n.length ? eur(tot) : "—")}</div>
+<div class="card"><h3 class="fh">Carica busta paga</h3><input type="file" id="pf" accept="application/pdf"><p style="color:var(--mu);font-size:13px">Carica il PDF della busta (anche di 2 pagine). Viene conservato solo sul tuo dispositivo, così puoi riaprirlo con l'occhio; controlla i campi prima di salvare.</p><div id="res"></div></div>
 ${payList(P)}`;
 }
 function bPay2() {
@@ -1000,6 +1076,9 @@ function bPay2() {
         );
       }),
   );
+  document
+    .querySelectorAll("[data-det]")
+    .forEach((b) => (b.onclick = () => detPay(b.dataset.det)));
   document
     .querySelectorAll("[data-view]")
     .forEach((b) => (b.onclick = () => viewPdf(b.dataset.view)));
