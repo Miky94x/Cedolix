@@ -266,10 +266,45 @@ function vSet() {
   const s = S.set;
   return `<h2>Impostazioni</h2><div class="card set"><label>Ore settimanali da contratto</label><input type="number" step="0.25" id="wh" value="${s.wh}">
 <label>Santo patrono</label><input type="date" id="pa" style="width:100%" value="${s.patrono ? new Date().getFullYear() + "-" + s.patrono : ""}">
+<label class="tpk"><span>Colore tema</span><input type="color" id="tc" value="${s.tema || "#0f766e"}"></label>
 <div class="hd"><span>Data di assunzione</span><b>${s.hire ? s.hire.split("-").reverse().join("/") : "verrà letta dalla prima busta paga caricata"}</b></div>
-<div class="row" style="margin-top:14px"><button class="b" id="sv">Salva</button></div><p id="ms" style="color:var(--ac);font-size:17px"></p></div>`;
+<div class="row" style="margin-top:14px"><button class="b s" id="tr">Ripristina colore</button><button class="b" id="sv">Salva</button></div><p id="ms" style="color:var(--ac);font-size:17px"></p></div>`;
+}
+function applyTema() {
+  const c = S.set.tema,
+    r = document.documentElement.style,
+    k = ["--ac", "--hero", "--on", "--onh"],
+    mt = document.querySelector('meta[name="theme-color"]');
+  if (c && /^#[0-9a-f]{6}$/i.test(c)) {
+    const v = [1, 3, 5].map((i) => {
+        const x = parseInt(c.slice(i, i + 2), 16) / 255;
+        return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+      }),
+      L = 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2],
+      on = L > 0.4 ? "#000" : "#fff";
+    r.setProperty("--ac", c);
+    r.setProperty("--hero", c);
+    r.setProperty("--on", on);
+    r.setProperty("--onh", on);
+    if (mt) mt.content = c;
+  } else {
+    k.forEach((p) => r.removeProperty(p));
+    if (mt) mt.content = "#0f766e";
+  }
 }
 function bSet() {
+  $("#tc").oninput = (e) => {
+    S.set.tema = e.target.value;
+    applyTema();
+    save();
+  };
+  $("#tr").onclick = () => {
+    delete S.set.tema;
+    applyTema();
+    save();
+    keep = 1;
+    render();
+  };
   $("#sv").onclick = () => {
     const s = S.set;
     s.wh = +$("#wh").value || 0;
@@ -1204,26 +1239,5 @@ document.querySelectorAll("nav button").forEach(
       render();
     }),
 );
-try {
-  const ic =
-    "data:image/svg+xml," +
-    encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="40" fill="#0f766e"/><circle cx="96" cy="96" r="58" fill="none" stroke="#fff" stroke-width="12"/><path d="M96 58v40l26 16" stroke="#fff" stroke-width="12" fill="none" stroke-linecap="round"/></svg>',
-    );
-  const mf = {
-    name: "Ore Lavoro",
-    short_name: "Ore",
-    display: "standalone",
-    start_url: ".",
-    background_color: "#0f766e",
-    theme_color: "#0f766e",
-    icons: [{ src: ic, sizes: "192x192", type: "image/svg+xml" }],
-  };
-  const l = document.createElement("link");
-  l.rel = "manifest";
-  l.href = URL.createObjectURL(
-    new Blob([JSON.stringify(mf)], { type: "application/manifest+json" }),
-  );
-  document.head.appendChild(l);
-} catch (e) {}
+applyTema();
 render();

@@ -6,8 +6,15 @@
       name="viewport"
       content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#80156e" />
+    <meta name="theme-color" content="#0f766e" />
     <title>Ore Lavoro</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" type="image/png" href="icon-192.png" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Ore Lavoro" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
     <script>
       ["gesturestart", "gesturechange", "gestureend"].forEach(function (e) {
@@ -68,6 +75,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
     <script>
       document.write('<script src="app.js?v=' + V + '"><\/script>');
+      if ("serviceWorker" in navigator && /^https?:/.test(location.protocol))
+        window.addEventListener("load", function () {
+          navigator.serviceWorker.register("sw.js").catch(function () {});
+        });
     </script>
   </body>
 </html>
