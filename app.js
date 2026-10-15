@@ -225,22 +225,31 @@ function vFerie() {
   const f = ferie(),
     l = f.l;
   if (!l || f.ore == null)
-    return `<h2>Ferie</h2><div class="card"><p style="color:var(--mu)">Carica una busta paga: ferie, permessi ed ex-festività vengono letti direttamente dal cedolino.</p></div>`;
-  const row = (lab, val, sub, cls) =>
+    return `<div class="card"><p style="color:var(--mu)">Carica una busta paga: ferie, permessi ed ex-festività vengono letti direttamente dal cedolino.</p></div>`;
+  const row = (lab, val, cls, sub) =>
       `<div class="fr ${cls || ""}"><div>${lab}${sub ? `<small>${sub}</small>` : ""}</div><b>${val}</b></div>`,
     mese = l.per
       ? cap(MESI[+l.per.slice(5, 7) - 1] || "") + " " + l.per.slice(0, 4)
-      : "ultima busta";
-  return `<h2>Ferie</h2>
-<div class="hero"><small>Ancora da usare</small><div class="big">${f.sett == null ? "—" : fmt1(f.sett) + " settimane"}</div><small>${fmt(f.gg)} giorni · ${fmtH(f.ore)} in totale (ferie + permessi + ex-festività)</small></div>
+      : "ultima busta",
+    dal = "secondo la busta di " + mese,
+    ore = (v) => (v == null ? "—" : fmt(v) + " ore"),
+    god = (v) => (v == null ? "—" : (v ? "-" : "") + fmt(Math.abs(v)) + " ore"),
+    sum = (a, b) => (a == null && b == null ? null : (a || 0) + (b || 0)),
+    pAP = sum(l.exAP, l.permAP),
+    pMat = sum(l.exMat, l.permMat),
+    pGod = sum(l.exGodAnno, l.permGodAnno);
+  return `<div class="hero"><small>Ancora da usare</small><div class="big">${f.sett == null ? "—" : fmt1(f.sett) + " settimane"}</div><small>${fmt(f.gg)} giorni · ${fmtH(f.ore)} in totale (ferie + permessi + ex-festività)</small></div>
 <div class="card"><h3 class="fh">Ferie</h3>
-${row("Rimaste dall'anno scorso", fmtH(l.ferieAP))}
-${row("Maturate quest'anno", "+ " + fmtH(l.ferieMat))}
-${row("Già godute quest'anno", "− " + fmtH(l.ferieGodAnno))}
-${row("Saldo ferie", fmtH(f.fer), "secondo la busta di " + mese, "tt")}
-${f.usati ? row("Segnate nel calendario dopo la busta", "− " + f.usati + (f.usati === 1 ? " giorno" : " giorni")) : ""}</div>
+${row("Residuo AP", ore(l.ferieAP))}
+${row("Maturato", ore(l.ferieMat))}
+${row("Goduto", god(l.ferieGodAnno))}
+${row("Saldo", ore(f.fer), "tt", dal)}
+${f.usati ? row("Segnate dopo la busta", "-" + f.usati + (f.usati === 1 ? " giorno" : " giorni")) : ""}</div>
 <div class="card"><h3 class="fh">Permessi ed ex-festività</h3>
-${row("Saldo", fmtH(f.pe), "secondo la busta di " + mese, "tt")}</div>`;
+${row("Residuo AP", ore(pAP))}
+${row("Maturato", ore(pMat))}
+${row("Goduto", god(pGod))}
+${row("Saldo", ore(f.pe), "tt", dal)}</div>`;
 }
 function vSet() {
   const s = S.set;
@@ -774,7 +783,13 @@ const FD = [
     ["ferieMat", "Ferie maturate (ore)"],
     ["ferieGodAnno", "Ferie godute da inizio anno (ore)"],
     ["ferieSaldo", "Ferie saldo (ore)"],
+    ["exAP", "Ex-festività residuo AP (ore)"],
+    ["exMat", "Ex-festività maturate (ore)"],
+    ["exGodAnno", "Ex-festività godute da inizio anno (ore)"],
     ["exSaldo", "Ex-festività saldo (ore)"],
+    ["permAP", "Permessi residuo AP (ore)"],
+    ["permMat", "Permessi maturati (ore)"],
+    ["permGodAnno", "Permessi goduti da inizio anno (ore)"],
     ["permSaldo", "Permessi saldo (ore)"],
     ["tfrFondo", "TFR fondo al 31/12 €"],
     ["tfrQuota", "Quota TFR del mese €"],
@@ -927,10 +942,19 @@ function parse2(pg) {
       put("ferieGodAnno", v.length === 4 ? v[2] : 0);
       put("ferieSaldo", v[v.length - 1]);
     }
+    const bal = (mm, p) => {
+      const v = mm[1].trim().split(/\s+/).map(N);
+      put(p + "Saldo", v[v.length - 1]);
+      if (v.length >= 3) {
+        put(p + "AP", v[0]);
+        put(p + "Mat", v[1]);
+        put(p + "GodAnno", v.length === 4 ? v[2] : 0);
+      }
+    };
     m = t.match(/Perm\.?\s*Ex-?\s*Fs((?:\s+[\d.,]+){3,4})\s*ORE/i);
-    if (m) put("exSaldo", N(m[1].trim().split(/\s+/).pop()));
-    m = t.match(/Permessi\s+([\d.,]+)(?:\s+([\d.,]+))?\s*ORE/i);
-    if (m) put("permSaldo", N(m[2] || m[1]));
+    if (m) bal(m, "ex");
+    m = t.match(/\bPermessi((?:\s+[\d.,]+){1,4})\s*ORE/i);
+    if (m) bal(m, "perm");
     put("tfrFondo", N(near(P, "f.do31/12", "b")));
     put("tfrQuota", N(g(/Quota T\.F\.R\.\s+([\d.]+,\d{2})/)));
     put("tfrAnno", N(near(P, "quotaanno", "b")));
