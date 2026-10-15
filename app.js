@@ -500,9 +500,23 @@ function hoursModal(k) {
 }
 const idb = () =>
     new Promise((res, rej) => {
-      const r = indexedDB.open("oreLavoroPdf", 1);
-      r.onupgradeneeded = () => r.result.createObjectStore("pdf");
-      r.onsuccess = () => res(r.result);
+      // apre senza versione: evita VersionError se il DB sul dispositivo ha già una versione più alta
+      const r = indexedDB.open("oreLavoroPdf");
+      r.onupgradeneeded = () => {
+        if (!r.result.objectStoreNames.contains("pdf"))
+          r.result.createObjectStore("pdf");
+      };
+      r.onsuccess = () => {
+        const db = r.result;
+        db.onversionchange = () => db.close();
+        if (db.objectStoreNames.contains("pdf")) return res(db);
+        const v = db.version + 1;
+        db.close();
+        const r2 = indexedDB.open("oreLavoroPdf", v);
+        r2.onupgradeneeded = () => r2.result.createObjectStore("pdf");
+        r2.onsuccess = () => res(r2.result);
+        r2.onerror = () => rej(r2.error);
+      };
       r.onerror = () => rej(r.error);
     }),
   idbDo = async (mode, f) => {
