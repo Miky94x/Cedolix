@@ -126,11 +126,18 @@ button.b {
   color: #fff;
   border: 0;
   padding: 9px 14px;
+  text-shadow:
+      -1px -1px 0 #000,
+      1px -1px 0 #000,
+      -1px 1px 0 #000,
+      1px 1px 0 #000,
+      0 0 3px #000;
 }
 button.s {
   background: var(--bg);
   color: var(--tx);
   border: 1px solid var(--bd);
+  text-shadow: none;
 }
 label {
   display: block;
@@ -279,6 +286,12 @@ pre {
   background: var(--ac);
   color: #fff;
   border-color: var(--ac);
+  text-shadow:
+      -1px -1px 0 #000,
+      1px -1px 0 #000,
+      -1px 1px 0 #000,
+      1px 1px 0 #000,
+      0 0 3px #000;
 }
 .dy.ho.sl {
   background: #ef4444;

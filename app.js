@@ -317,7 +317,7 @@ function hoursModal(k) {
       ? `<p style="color:var(--mu);font-size:13px;margin:0 0 10px">Questo giorno ha già ${fmtH(x.h)} registrate: salvando verranno sostituite dai turni.</p>`
       : "";
   modal(
-    `<h3>Aggiungi ore · ${GF[d.getDay()]} ${d.getDate()} ${MESI[d.getMonth()]}</h3>${note}<div id="tl"></div><button class="b s" id="ta" style="width:100%">+ Aggiungi turno</button><div class="tot"><span>Totale ore</span><b id="tt"></b></div><p id="er" class="neg" style="margin:0 0 10px"></p><div class="row"><button class="b s" id="mc">Annulla</button><button class="b" id="ms">Salva</button></div>`,
+    `<h3>Aggiungi turno · ${GF[d.getDay()]} ${d.getDate()} ${MESI[d.getMonth()]}</h3>${note}<div id="tl"></div><button class="b s" id="ta" style="width:100%">+ Aggiungi turno</button><div class="tot"><span>Totale ore</span><b id="tt"></b></div><p id="er" class="neg" style="margin:0 0 10px"></p><div class="row"><button class="b s" id="mc">Annulla</button><button class="b" id="ms">Salva</button></div>`,
     (m, close) => {
       const L = m.querySelector("#tl"),
         upd = () => {
@@ -500,33 +500,11 @@ function vHome() {
           : "Nessuna ora registrata";
   const nd = nh ? new Date(nh[0]) : null;
   return `<div class="hero"><small>${GG[n.getDay()]} ${n.getDate()} ${MESI[m]} ${y}</small><small style="display:block;margin-top:12px">${hlab}</small><div class="big">${hbig}</div><div class="bar"><i style="width:${pct}%"></i></div><small>${hsub}</small></div>
-<div class="card"><div class="row"><b>Oggi</b><span style="color:var(--mu);text-align:right">${stt}</span></div><div class="chips"><button class="b" id="qa">+ Aggiungi ore</button><button class="b s" id="qe">✓ Ore previste (${fmtH(E)})</button><button class="b s" id="qf">Ferie</button><button class="b s" id="qm">Malattia</button><input type="number" step="0.25" id="qh" placeholder="Ore" value="${x.t ? "" : (x.h ?? "")}"></div>${x.turni && !x.t ? `<small style="color:var(--mu);display:block;margin-top:8px">${tl(x.turni)}</small>` : ""}</div>
-<div class="grid" style="margin-bottom:12px"><div class="k"><b>${f.sett == null ? "—" : fmt1(f.sett) + " sett."}</b><span>Ferie + permessi residui</span></div><div class="k"><b>${a ? a.y + " a " + a.m + " m" : "—"}</b><span>Anzianità</span></div><div class="k"><b>${nd ? nd.getDate() + " " + MESI[nd.getMonth()].slice(0, 3) : "—"}</b><span>Prossimo festivo${nh ? ": " + nh[1] : ""}</span></div><div class="k"><b>${lp && lp.netto ? fmt(lp.netto) + " €" : "—"}</b><span>Ultima busta${lp && lp.per ? " (" + lp.per + ")" : ""}</span></div></div>
-<div class="tiles"><button class="tile" data-go="m"><span>${IC.m}</span><b>Ore del mese</b><small>Inserisci e controlla</small></button><button class="tile" data-go="f"><span>${IC.f}</span><b>Ferie</b><small>Totali, usate, vecchie</small></button><button class="tile" data-go="p"><span>${IC.p}</span><b>Busta paga</b><small>Carica il PDF</small></button><button class="tile" data-go="s"><span>${IC.s}</span><b>Impostazioni</b><small>Orari, ferie, backup</small></button></div>`;
+<div class="card"><div class="row"><b>Oggi</b><span style="color:var(--mu);text-align:right">${stt}</span></div><div class="chips" style="justify-content:center"><button class="b" id="qa">+ Aggiungi turno</button></div>${x.turni && !x.t ? `<small style="color:var(--mu);display:block;margin-top:8px;text-align:center">${tl(x.turni)}</small>` : ""}</div>
+<div class="grid" style="margin-bottom:12px"><div class="k"><b>${f.sett == null ? "—" : fmt1(f.sett) + " sett."}</b><span>Ferie + permessi residui</span></div><div class="k"><b>${a ? a.y + " a " + a.m + " m" : "—"}</b><span>Anzianità</span></div><div class="k"><b>${nd ? nd.getDate() + " " + MESI[nd.getMonth()].slice(0, 3) : "—"}</b><span>Prossimo festivo${nh ? ": " + nh[1] : ""}</span></div><div class="k"><b>${lp && lp.netto ? fmt(lp.netto) + " €" : "—"}</b><span>Ultima busta${lp && lp.per ? " (" + lp.per + ")" : ""}</span></div></div>`;
 }
 function bHome() {
-  const d = new Date(),
-    k = iso(d),
-    E = std(),
-    set = (o) => {
-      S.days[k] = o;
-      if (!o.h && !o.t) delete S.days[k];
-      save();
-      render();
-    };
-  $("#qa").onclick = () => hoursModal(k);
-  $("#qe").onclick = () => set({ h: E });
-  $("#qf").onclick = () => set({ t: "ferie" });
-  $("#qm").onclick = () => set({ t: "malattia" });
-  $("#qh").onchange = (e) =>
-    set({ h: e.target.value === "" ? undefined : +e.target.value });
-  document.querySelectorAll("[data-go]").forEach(
-    (b) =>
-      (b.onclick = () => {
-        tab = b.dataset.go;
-        render();
-      }),
-  );
+  $("#qa").onclick = () => hoursModal(iso(new Date()));
 }
 const pd = (s) => new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8)),
   GF = [
@@ -538,7 +516,8 @@ const pd = (s) => new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8)),
     "Venerdì",
     "Sabato",
   ];
-let sel = iso(new Date());
+let sel = iso(new Date()),
+  pt = null;
 function vCal() {
   const y = cur.getFullYear(),
     m = cur.getMonth(),
@@ -566,13 +545,14 @@ function vCal() {
   const D = pd(sel),
     E = std(),
     x = S.days[sel] || {},
+    t = pt && pt.k === sel ? pt.t : x.t || "",
     op = (v, l) =>
-      `<option value="${v}"${x.t === v ? " selected" : ""}>${l}</option>`;
+      `<option value="${v}"${t === v ? " selected" : ""}>${l}</option>`;
   return `<div class="row"><button class="b s" id="pv">‹</button><h2>${MESI[m]} ${y}</h2><button class="b s" id="nx">›</button></div>
 <div class="card"><div class="cal">${["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"].map((g) => `<div class="wd">${g}</div>`).join("")}${c}</div></div>
 <div class="card"><b>Periodo di calcolo di ${MESI[m]}</b><div class="chips"><input type="date" id="ps" value="${ps}"><span>→</span><input type="date" id="pe" value="${pe}"><button class="b s" id="pr">Reimposta</button></div></div>
 <div class="card"><div class="row"><b>${GF[D.getDay()]} ${D.getDate()} ${MESI[D.getMonth()]}</b><small style="color:${H[sel] ? "#ef4444" : "var(--mu)"}">${H[sel] || "giorno tipo " + fmtH(E)}</small></div>
-<div class="chips"><select id="dt">${op("", "Lavoro")}${op("ferie", "Ferie")}${op("permesso", "Permesso")}${op("malattia", "Malattia")}</select><input type="number" step="0.25" min="0" max="24" id="dh" placeholder="${fmt(E)}" value="${x.h ?? ""}"><button class="b" id="da">+ Aggiungi ore</button><button class="b s" id="de">✓ Ore previste</button><button class="b s" id="dc">Cancella</button></div>${x.turni && !x.t ? `<small style="color:var(--mu);display:block;margin-top:8px">${tl(x.turni)}</small>` : ""}</div>
+<div class="chips"><select id="dt">${op("", "Lavoro")}${op("ferie", "Ferie")}${op("permesso", "Permesso")}${op("malattia", "Malattia")}</select>${t === "" ? `<button class="b" id="da">+ Aggiungi turno</button>` : `<button class="b" id="di">Inserisci</button>`}<button class="b s" id="dc">Cancella</button></div>${x.turni && !x.t ? `<small style="color:var(--mu);display:block;margin-top:8px">${tl(x.turni)}</small>` : ""}</div>
 <div class="card"><div class="grid"><div class="k"><b>${fmtH(st.w + st.fe)}</b><span>Ore effettive (incl. assenze)</span></div><div class="k"><b>${fmtH(st.e)}</b><span>Ore previste</span></div><div class="k"><b class="${st.bal >= 0 ? "pos" : "neg"}">${st.bal > 0 ? "+" : ""}${fmtH(st.bal)}</b><span>Saldo mese</span></div><div class="k"><b>${st.ex} / ${st.hol}</b><span>Ferie / festivi nel mese</span></div></div>
 <small style="color:var(--mu)">Periodo: ${P.s.getDate()} ${MESI[P.s.getMonth()]} → ${P.e.getDate()} ${MESI[P.e.getMonth()]} · giorni fuori periodo sbiaditi · rosso = festivi e domeniche</small></div>`;
 }
@@ -589,35 +569,31 @@ function bCal() {
     (b) =>
       (b.onclick = () => {
         sel = b.dataset.d;
+        pt = null;
         keep = 1;
         render();
       }),
   );
-  const E = std(),
-    upd = (f) => {
+  $("#dt").onchange = (e) => {
+    pt = { k: sel, t: e.target.value };
+    keep = 1;
+    render();
+  };
+  if ($("#di"))
+    $("#di").onclick = () => {
       const x = (S.days[sel] = S.days[sel] || {});
-      f(x);
+      x.t = pt && pt.k === sel ? pt.t : x.t;
+      x.h = undefined;
       delete x.turni;
       if (!x.h && !x.t) delete S.days[sel];
+      pt = null;
       save();
       keep = 1;
       render();
     };
-  $("#dt").onchange = (e) =>
-    upd((x) => {
-      x.t = e.target.value || undefined;
-    });
-  $("#dh").onchange = (e) =>
-    upd((x) => {
-      x.h = e.target.value === "" ? undefined : +e.target.value;
-    });
-  $("#de").onclick = () =>
-    upd((x) => {
-      x.t = undefined;
-      x.h = E;
-    });
-  $("#da").onclick = () => hoursModal(sel);
+  if ($("#da")) $("#da").onclick = () => hoursModal(sel);
   $("#dc").onclick = () => {
+    pt = null;
     delete S.days[sel];
     save();
     keep = 1;
