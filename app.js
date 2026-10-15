@@ -1,5 +1,4 @@
-const LS = "oreLavoroV1",
-  $ = (s) => document.querySelector(s);
+const $ = (s) => document.querySelector(s);
 const def = {
   set: {
     hire: "",
@@ -9,29 +8,35 @@ const def = {
   days: {},
   pay: [],
 };
-let S;
-try {
-  S = JSON.parse(localStorage.getItem(LS)) || def;
-} catch (e) {
-  S = def;
-}
-S.set = { ...def.set, ...S.set };
-(() => {
+let S = JSON.parse(JSON.stringify(def));
+function norm() {
+  S.set = { ...def.set, ...S.set };
+  S.days = S.days || {};
+  S.pay = S.pay || [];
   const y = new Date().getFullYear();
   if (S.set.patrono && S.set.patronoY == null) S.set.patronoY = y;
   if (S.set.patrono && S.set.patronoY !== y) {
     S.set.patrono = "";
     delete S.set.patronoY;
-    try {
-      localStorage.setItem(LS, JSON.stringify(S));
-    } catch (e) {}
+    return true;
   }
-})();
+}
 const save = () => {
-  try {
-    localStorage.setItem(LS, JSON.stringify(S));
-  } catch (e) {}
+  kvPut("state", JSON.stringify(S)).catch(() => {});
 };
+async function boot() {
+  try {
+    const raw = await kvGet("state");
+    if (raw) S = JSON.parse(raw);
+  } catch (e) {}
+  if (norm()) save();
+  applyTema();
+  render();
+  try {
+    if (navigator.storage && navigator.storage.persist)
+      navigator.storage.persist();
+  } catch (e) {}
+}
 let tab = "h",
   cur = new Date();
 cur.setDate(1);
@@ -155,17 +160,24 @@ function ferie() {
   const [y, m] = (l.per || "0-0").split("-").map(Number),
     lim = l.per ? iso(new Date(y, m, 0)) : "";
   let usati = 0;
-  for (const k in S.days) if (k > lim && S.days[k].t === "ferie") usati++;
+  let uo = 0;
+  for (const k in S.days)
+    if (k > lim && S.days[k].t === "ferie") {
+      usati++;
+      const h = S.days[k].h;
+      uo += h != null && h !== "" ? +h : std() || 8;
+    }
   const d = std() || 8,
     fer = l.ferieSaldo || 0,
     pe = (l.permSaldo || 0) + (l.exSaldo || 0),
-    ore = fer + pe - usati * d;
+    ore = fer + pe - uo;
   return {
     l,
     ore,
     gg: ore / d,
     sett: wh() ? ore / wh() : null,
     usati,
+    uo,
     fer,
     pe,
   };
@@ -224,7 +236,7 @@ ${row("Residuo AP", ore(l.ferieAP))}
 ${row("Maturato", ore(l.ferieMat))}
 ${row("Goduto", god(l.ferieGodAnno))}
 ${row("Saldo", ore(f.fer), "tt", dal)}
-${f.usati ? row("Segnate dopo la busta", "-" + f.usati + (f.usati === 1 ? " giorno" : " giorni")) : ""}</div>
+${f.usati ? row("Segnate dopo la busta", "-" + fmtH(f.uo), f.usati + (f.usati === 1 ? " giorno" : " giorni")) : ""}</div>
 <div class="card"><h3 class="fh">Permessi ed ex-festività</h3>
 ${row("Residuo AP", ore(pAP))}
 ${row("Maturato", ore(pMat))}
@@ -237,7 +249,7 @@ function vSet() {
 <label>Santo patrono</label><input type="date" id="pa" style="width:100%" value="${s.patrono ? new Date().getFullYear() + "-" + s.patrono : ""}">
 <button type="button" class="tpk" id="tc"><span>Colore tema</span><i id="tsw" style="background:${s.tema || "#d00cca"}"></i></button>
 <div class="hd"><span>Data di assunzione</span><b>${s.hire ? s.hire.split("-").reverse().join("/") : "verrà letta dalla prima busta paga caricata"}</b></div>
-<div class="row" style="margin-top:14px"><button class="b s" id="tr">Ripristina colore</button><button class="b" id="sv">Salva</button></div><p id="ms" style="color:var(--ac)"></p></div><div class="card ver">Cedolix V${V}</div>`;
+<div class="row" style="margin-top:14px"><button class="b s" id="tr">Ripristina colore</button><button class="b" id="sv">Salva</button></div><p id="ms" style="color:var(--ac)"></p></div><div class="card"><h3 class="fh">Backup e ripristino</h3><p style="color:var(--mu);font-size:13px;margin:6px 0 4px">Salva dati e PDF delle buste in un unico file ZIP. Ripristinando, tutti i dati attuali vengono sostituiti.</p><p id="bl" style="color:var(--mu);font-size:13px;margin:0 0 12px">Ultimo backup: ${fdt(s.lastBackup)}</p><div class="row"><button class="b s" id="bk">Esporta backup</button><button class="b s" id="rs">Ripristina</button></div><p id="bm" style="margin:10px 0 0"></p></div><div class="card ver">Cedolix V${V}</div>`;
 }
 function colorModal(init, onChange) {
   const cl = (v) => Math.max(0, Math.min(1, v)),
@@ -351,6 +363,138 @@ function applyTema() {
     k.forEach((p) => r.removeProperty(p));
   }
 }
+const bmsg = (t, bad) => {
+  const e = $("#bm");
+  if (e) {
+    e.textContent = t;
+    e.style.color = bad ? "#dc2626" : "var(--ac)";
+  }
+};
+const fdt = (s) => {
+  if (!s) return "mai";
+  const d = new Date(s);
+  return isNaN(d)
+    ? "mai"
+    : d.toLocaleDateString("it-IT") +
+        " " +
+        d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+};
+async function doBackup() {
+  if (typeof JSZip === "undefined")
+    return bmsg("Libreria ZIP non disponibile (serve la connessione).", 1);
+  bmsg("Creazione backup…");
+  try {
+    const now = new Date(),
+      z = new JSZip(),
+      fo = z.folder("pdf");
+    let n = 0;
+    z.file(
+      "dati.json",
+      JSON.stringify(
+        { app: "Cedolix", versione: V, data: now.toISOString(), stato: S },
+        null,
+        1,
+      ),
+    );
+    for (const p of S.pay) {
+      if (!p.pdf) continue;
+      try {
+        const b = await pdfGet(p.id);
+        if (b) {
+          fo.file((p.per || "senza-periodo") + "_" + p.id + ".pdf", b);
+          n++;
+        }
+      } catch (e) {}
+    }
+    const blob = await z.generateAsync({
+        type: "blob",
+        compression: "DEFLATE",
+      }),
+      name = "cedolix-backup-" + iso(now) + ".zip",
+      file = new File([blob], name, { type: "application/zip" });
+    let done = false;
+    if (
+      matchMedia("(pointer:coarse)").matches &&
+      navigator.canShare &&
+      navigator.canShare({ files: [file] })
+    ) {
+      try {
+        await navigator.share({ files: [file] });
+        done = true;
+      } catch (e) {
+        if (e.name === "AbortError") return bmsg("");
+      }
+    }
+    if (!done) {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    }
+    S.set.lastBackup = now.toISOString();
+    save();
+    const l = $("#bl");
+    if (l) l.textContent = "Ultimo backup: " + fdt(S.set.lastBackup);
+    bmsg("Backup creato ✓ (" + S.pay.length + " buste, " + n + " PDF)");
+  } catch (e) {
+    bmsg("Errore nella creazione del backup.", 1);
+  }
+}
+function pickRestore() {
+  const i = document.createElement("input");
+  i.type = "file";
+  i.accept = ".zip,application/zip";
+  i.onchange = () => i.files[0] && doRestore(i.files[0]);
+  i.click();
+}
+async function doRestore(f) {
+  if (typeof JSZip === "undefined")
+    return bmsg("Libreria ZIP non disponibile (serve la connessione).", 1);
+  let z, D;
+  try {
+    z = await JSZip.loadAsync(f);
+    D = JSON.parse(await z.file("dati.json").async("string")).stato;
+    if (!D || !Array.isArray(D.pay) || typeof D.days !== "object" || !D.days)
+      throw 0;
+  } catch (e) {
+    return bmsg("File non valido: non è un backup di Cedolix.", 1);
+  }
+  const files = z.file(/\.pdf$/i);
+  confirmBox(
+    "Ripristinare il backup?",
+    `Il backup contiene <b>${D.pay.length}</b> buste e <b>${files.length}</b> PDF. Tutti i dati attuali verranno sostituiti. L'operazione non si può annullare.`,
+    "Ripristina",
+    async () => {
+      try {
+        bmsg("Ripristino in corso…");
+        const pdfs = {};
+        for (const e of files) {
+          const m = e.name.match(/_(\d+)\.pdf$/i);
+          if (m) pdfs[m[1]] = await e.async("arraybuffer");
+        }
+        await pdfClear();
+        for (const p of D.pay) {
+          if (pdfs[p.id]) {
+            await pdfPut(p.id, pdfs[p.id]);
+            p.pdf = true;
+          } else delete p.pdf;
+        }
+        S = D;
+        norm();
+        await kvPut("state", JSON.stringify(S));
+        applyTema();
+        keep = 0;
+        render();
+        bmsg("Ripristino completato ✓");
+      } catch (e) {
+        bmsg("Errore durante il ripristino.", 1);
+      }
+    },
+  );
+}
 function bSet() {
   $("#tc").onclick = () =>
     colorModal(S.set.tema || "#d00cca", (hex) => {
@@ -376,6 +520,8 @@ function bSet() {
     save();
     $("#ms").textContent = "Salvato ✓";
   };
+  $("#bk").onclick = doBackup;
+  $("#rs").onclick = pickRestore;
 }
 const IC = {
   e: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
@@ -498,105 +644,41 @@ function hoursModal(k) {
     },
   );
 }
-function feriCalc(a, b) {
-  // giorni da segnare come ferie tra a e b (AAAA-MM-GG):
-  // niente domeniche e festivi; il sabato non conta nelle settimane complete (lun-ven tutti inclusi)
-  if (!a || !b || a > b) return { keys: [], tot: 0 };
-  const keys = [],
-    H = {};
-  let tot = 0;
-  for (let d = pd(a); iso(d) <= b; d.setDate(d.getDate() + 1)) {
-    tot++;
-    const k = iso(d),
-      y = d.getFullYear();
-    H[y] = H[y] || holidays(y);
-    if (d.getDay() === 0 || H[y][k]) continue;
-    if (d.getDay() === 6) {
-      const lun = iso(new Date(y, d.getMonth(), d.getDate() - 5)),
-        ven = iso(new Date(y, d.getMonth(), d.getDate() - 1));
-      if (a <= lun && b >= ven) continue;
-    }
-    keys.push(k);
-  }
-  return { keys, tot };
-}
-function feriModal(k0) {
-  modal(
-    `<h3>Ferie · scegli il periodo</h3><label>Dal</label><input type="date" id="fa" value="${k0}" style="width:100%"><label>Al</label><input type="date" id="fb" value="${k0}" style="width:100%"><div class="tot"><span>Giorni di ferie</span><b id="fn"></b></div><p id="fs" style="color:var(--mu);font-size:13px;margin:0 0 10px"></p><p id="er" class="neg" style="margin:0 0 10px"></p><div class="row"><button class="b s" id="mc">Annulla</button><button class="b" id="ms">Salva</button></div>`,
-    (m, close) => {
-      const fa = m.querySelector("#fa"),
-        fb = m.querySelector("#fb"),
-        upd = () => {
-          const r = feriCalc(fa.value, fb.value),
-            n = r.keys.length;
-          m.querySelector("#fn").textContent = n
-            ? n + (n === 1 ? " giorno" : " giorni") + " · " + fmtH(n * std())
-            : "—";
-          m.querySelector("#fs").textContent =
-            r.tot > n
-              ? "Domeniche, festivi e sabati delle settimane complete non vengono contati."
-              : "";
-          m.querySelector("#er").textContent = "";
-        };
-      fa.onchange = () => {
-        if (fa.value && (!fb.value || fb.value < fa.value)) fb.value = fa.value;
-        upd();
-      };
-      fb.onchange = upd;
-      m.querySelector("#mc").onclick = close;
-      m.querySelector("#ms").onclick = () => {
-        const r = feriCalc(fa.value, fb.value);
-        if (!r.keys.length) {
-          m.querySelector("#er").textContent =
-            "Nessun giorno lavorativo nel periodo scelto.";
-          return;
-        }
-        r.keys.forEach((k) => {
-          S.days[k] = { t: "ferie" };
-        });
-        pt = null;
-        save();
-        keep = 1;
-        close();
-        render();
-      };
-      upd();
-    },
-  );
-}
+let dbp;
 const idb = () =>
-    new Promise((res, rej) => {
-      // apre senza versione: evita VersionError se il DB sul dispositivo ha già una versione più alta
-      const r = indexedDB.open("oreLavoroPdf");
+    dbp ||
+    (dbp = new Promise((res, rej) => {
+      const r = indexedDB.open("oreLavoroPdf", 2);
       r.onupgradeneeded = () => {
-        if (!r.result.objectStoreNames.contains("pdf"))
-          r.result.createObjectStore("pdf");
+        const d = r.result;
+        ["pdf", "kv"].forEach((n) => {
+          if (!d.objectStoreNames.contains(n)) d.createObjectStore(n);
+        });
       };
       r.onsuccess = () => {
-        const db = r.result;
-        db.onversionchange = () => db.close();
-        if (db.objectStoreNames.contains("pdf")) return res(db);
-        const v = db.version + 1;
-        db.close();
-        const r2 = indexedDB.open("oreLavoroPdf", v);
-        r2.onupgradeneeded = () => r2.result.createObjectStore("pdf");
-        r2.onsuccess = () => res(r2.result);
-        r2.onerror = () => rej(r2.error);
+        r.result.onversionchange = () => r.result.close();
+        res(r.result);
       };
-      r.onerror = () => rej(r.error);
-    }),
-  idbDo = async (mode, f) => {
+      r.onerror = () => {
+        dbp = null;
+        rej(r.error);
+      };
+    })),
+  idbDo = async (st, mode, f) => {
     const db = await idb();
     return new Promise((res, rej) => {
-      const t = db.transaction("pdf", mode),
-        q = f(t.objectStore("pdf"));
+      const t = db.transaction(st, mode),
+        q = f(t.objectStore(st));
       t.oncomplete = () => res(q && q.result);
-      t.onerror = () => rej(t.error);
+      t.onerror = t.onabort = () => rej(t.error);
     });
   },
-  pdfPut = (id, buf) => idbDo("readwrite", (o) => o.put(buf, id)),
-  pdfGet = (id) => idbDo("readonly", (o) => o.get(id)),
-  pdfDel = (id) => idbDo("readwrite", (o) => o.delete(id));
+  pdfPut = (id, buf) => idbDo("pdf", "readwrite", (o) => o.put(buf, id)),
+  pdfGet = (id) => idbDo("pdf", "readonly", (o) => o.get(id)),
+  pdfDel = (id) => idbDo("pdf", "readwrite", (o) => o.delete(id)),
+  pdfClear = () => idbDo("pdf", "readwrite", (o) => o.clear()),
+  kvPut = (k, v) => idbDo("kv", "readwrite", (o) => o.put(v, k)),
+  kvGet = (k) => idbDo("kv", "readonly", (o) => o.get(k));
 async function viewPdf(id) {
   const p = S.pay.find((q) => q.id == id);
   if (!p) return;
@@ -779,6 +861,43 @@ function payList(P) {
     })
     .join("");
 }
+function simOre(y, m) {
+  const k = y + "-" + String(m + 1).padStart(2, "0"),
+    L = S.pay
+      .filter((p) => p.per && p.lordo && p.netto)
+      .sort((a, b) => b.per.localeCompare(a.per)),
+    l = L.find((p) => p.per <= k) || L[0];
+  if (!l) return null;
+  const hr =
+    l.oraria ||
+    (l.ore
+      ? (l.lordo - (l.straordImp || 0)) /
+        (l.ore + (l.ferieGod || 0) + (l.exGod || 0))
+      : 0);
+  if (!hr) return null;
+  const D = meseDati(y, m),
+    ord = Math.max(0, D.st.w + D.st.fe - D.supp),
+    po = ord * hr,
+    ps = D.supp * hr * 1.35,
+    pf = D.fest * hr * 0.3,
+    lordo = po + ps + pf;
+  return { l, hr, D, ord, po, ps, pf, lordo, netto: (lordo * l.netto) / l.lordo };
+}
+function vSim(pm, PP, dm) {
+  const s = simOre(pm.getFullYear(), pm.getMonth()),
+    eur = (v) => fmt(v) + " €",
+    r = (lab, val, sub, cls) =>
+      `<div class="fr ${cls || ""}"><div>${lab}${sub ? `<small>${sub}</small>` : ""}</div><b>${val}</b></div>`,
+    tit = `<h3 class="fh">Simulazione stipendio</h3><small style="color:var(--mu)">${cap(MESI[pm.getMonth()])} · periodo ${dm(PP.s)} → ${dm(PP.e)}</small>`;
+  if (!s)
+    return `<div class="card">${tit}<p style="color:var(--mu);margin:10px 0 0">Carica una busta paga per calcolare la paga oraria.</p></div>`;
+  return `<div class="card">${tit}
+${r("Ore ordinarie", eur(s.po), fmtH(s.ord) + " × " + fmt(s.hr) + " €/h")}
+${r("Supplementare 35%", eur(s.ps), fmtH(s.D.supp) + " × " + fmt(s.hr * 1.35) + " €/h")}
+${r("Maggiorazione festivo 30%", eur(s.pf), fmtH(s.D.fest) + " × " + fmt(s.hr * 0.3) + " €/h")}
+${r("Lordo stimato", eur(s.lordo), "", "tt")}
+${r("Netto stimato", "≈ " + eur(s.netto), "stesso rapporto netto/lordo della busta di " + s.l.per, "tt")}</div>`;
+}
 function vHome() {
   const n = new Date(),
     y = n.getFullYear(),
@@ -821,6 +940,7 @@ function vHome() {
   const nd = nh ? new Date(nh[0]) : null;
   return `<div class="hero"><small>${GG[n.getDay()]} ${n.getDate()} ${MESI[m]} ${y}</small><small style="display:block;margin-top:12px">${hlab}</small><div class="big">${hbig}</div><div class="bar"><i style="width:${pct}%"></i></div><small>${hsub}</small></div>
 <div class="card"><div class="row"><b>Oggi</b><span style="color:var(--mu);text-align:right">${stt}</span></div>${x.turni && !x.t ? turniTab(x.turni) : ""}</div>
+${vSim(pm, PP, dm)}
 <div class="card"><div class="fr" id="goc" style="cursor:pointer"><div>Ore di contratto</div><b style="color:var(--ac)">${wh() ? fmt(wh()) + " ore" : "—"}</b></div><div class="fr"><div>Data assunzione</div><b>${S.set.hire ? S.set.hire.split("-").reverse().join("/") : "—"}</b></div></div>
 <div class="grid" style="margin-bottom:12px"><div class="k kc"><b>${f.sett == null ? "—" : fmt1(f.sett) + " sett."}</b><span>Ferie + permessi residui</span></div><div class="k kc"><b>${a ? a.y + " a " + a.m + " m" : "—"}</b><span>Anzianità</span></div><div class="k kc"><b>${nd ? nd.getDate() + " " + MESI[nd.getMonth()].slice(0, 3) : "—"}</b><span>Prossimo festivo${nh ? ": " + nh[1] : ""}</span></div><div class="k kc"><b>${lp && lp.netto ? fmt(lp.netto) + " €" : "—"}</b><span>Ultima busta${lp && lp.per ? " (" + lp.per + ")" : ""}</span></div></div>`;
 }
@@ -876,7 +996,7 @@ function vCal() {
 <div class="card"><div class="cal">${["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"].map((g) => `<div class="wd">${g}</div>`).join("")}${c}</div></div>
 <div class="card"><b>Periodo di calcolo di ${MESI[m]}</b> <b class="neg" style="margin-left:6px">Importante!</b><div class="chips"><input type="date" id="ps" value="${ps}"><span>→</span><input type="date" id="pe" value="${pe}"></div></div>
 <div class="card"><div class="row"><b>${GF[D.getDay()]} ${D.getDate()} ${MESI[D.getMonth()]}</b><small style="color:${H[sel] ? "#ef4444" : "var(--mu)"}">${H[sel] || ""}</small></div>
-<div class="dact"><select id="dt">${op("", "Lavoro")}${op("ferie", "Ferie")}${op("permesso", "Permesso")}${op("malattia", "Malattia")}</select>${t === "" ? `<button class="b" id="da">+ Aggiungi turno</button>` : `<button class="b" id="di">Inserisci</button>`}<button class="b s" id="dc">Cancella</button></div>${x.turni && !x.t ? turniTab(x.turni) : ""}</div>
+<div class="chips"><select id="dt">${op("", "Lavoro")}${op("ferie", "Ferie")}${op("permesso", "Permesso")}${op("malattia", "Malattia")}</select>${t === "" ? `<button class="b" id="da">+ Aggiungi turno</button>` : `<button class="b" id="di">Inserisci</button>`}<button class="b s" id="dc">Cancella</button></div>${x.turni && !x.t ? turniTab(x.turni) : ""}</div>
 <div class="card"><div class="grid"><div class="k"><b>${fmtH(st.w + st.fe)}</b><span>Ore effettive (incl. assenze)</span></div><div class="k"><b>${fmtH(st.e)}</b><span>Ore previste</span></div><div class="k"><b class="${st.bal >= 0 ? "pos" : "neg"}">${st.bal > 0 ? "+" : ""}${fmtH(st.bal)}</b><span>Saldo mese</span></div><div class="k"><b>${st.ex} / ${st.hol}</b><span>Ferie / festivi nel mese</span></div></div></div>${vBustaMese(y, m)}`;
 }
 function meseDati(y, m) {
@@ -964,6 +1084,68 @@ ${r("Netto stimato", "≈ " + eur(sb.netto), "stima: stesso rapporto netto/lordo
   return h;
 }
 
+function ferieModal(k0) {
+  const rng = (a, b) => {
+      const o = [],
+        d = pd(a),
+        e = pd(b);
+      for (; d <= e && o.length < 400; d.setDate(d.getDate() + 1))
+        o.push(iso(d));
+      return o;
+    },
+    plan = (a, b) => {
+      const days = rng(a, b),
+        out = {},
+        H = {};
+      for (let i = 0; i < days.length; i += 7) {
+        const ch = days.slice(i, i + 7).filter((k) => {
+          const y = +k.slice(0, 4);
+          H[y] = H[y] || holidays(y);
+          return !H[y][k];
+        });
+        if (!ch.length) continue;
+        const h =
+          Math.round((Math.min(wh(), ch.length * std()) / ch.length) * 1e4) /
+          1e4;
+        ch.forEach((k) => (out[k] = h));
+      }
+      return out;
+    };
+  modal(
+    `<h3>Inserisci ferie</h3><div class="tr" style="grid-template-columns:1fr 1fr"><div class="tf"><label>Da</label><input type="date" id="fa" value="${k0}"></div><div class="tf"><label>A</label><input type="date" id="fb" value="${k0}"></div></div><div class="tot"><span id="fd">Ferie da scalare</span><b id="ft"></b></div><p style="color:var(--mu);font-size:13px;margin:0 0 10px">Ogni 7 giorni consecutivi si scalano al massimo le ore settimanali; per meno giorni, ore settimanali ÷ 5 al giorno. I festivi non vengono segnati.</p><div class="row"><button class="b s" id="mc">Annulla</button><button class="b" id="ms">Salva</button></div>`,
+    (m, close) => {
+      const A = m.querySelector("#fa"),
+        B = m.querySelector("#fb"),
+        cur = () => {
+          if (!A.value) A.value = k0;
+          if (!B.value || B.value < A.value) B.value = A.value;
+          return plan(A.value, B.value);
+        },
+        upd = () => {
+          const P = cur(),
+            ks = Object.keys(P),
+            t = ks.reduce((z, k) => z + P[k], 0);
+          m.querySelector("#ft").textContent = fmtH(t);
+          m.querySelector("#fd").textContent =
+            "Ferie da scalare · " +
+            ks.length +
+            (ks.length === 1 ? " giorno" : " giorni");
+        };
+      A.onchange = B.onchange = upd;
+      m.querySelector("#mc").onclick = close;
+      m.querySelector("#ms").onclick = () => {
+        const P = cur();
+        for (const k in P) S.days[k] = { t: "ferie", h: P[k] };
+        pt = null;
+        save();
+        keep = 1;
+        close();
+        render();
+      };
+      upd();
+    },
+  );
+}
 function bCal() {
   $("#pv").onclick = () => {
     cur.setMonth(cur.getMonth() - 1);
@@ -983,17 +1165,14 @@ function bCal() {
       }),
   );
   $("#dt").onchange = (e) => {
-    if (e.target.value === "ferie") {
-      e.target.value = (pt && pt.k === sel ? pt.t : (S.days[sel] || {}).t) || "";
-      feriModal(sel);
-      return;
-    }
     pt = { k: sel, t: e.target.value };
     keep = 1;
     render();
   };
   if ($("#di"))
     $("#di").onclick = () => {
+      if ((pt && pt.k === sel ? pt.t : (S.days[sel] || {}).t) === "ferie")
+        return ferieModal(sel);
       const x = (S.days[sel] = S.days[sel] || {});
       x.t = pt && pt.k === sel ? pt.t : x.t;
       x.h = undefined;
@@ -1006,26 +1185,11 @@ function bCal() {
     };
   if ($("#da")) $("#da").onclick = () => hoursModal(sel);
   $("#dc").onclick = () => {
-    const D = pd(sel),
-      x = S.days[sel];
-    if (!x) {
-      pt = null;
-      keep = 1;
-      render();
-      return;
-    }
-    confirmBox(
-      "Cancellare il giorno?",
-      `Stai per eliminare i dati di <b>${GF[D.getDay()]} ${D.getDate()} ${MESI[D.getMonth()]}</b>${x.turni && !x.t ? " (turni inclusi)" : ""}. L'operazione non si può annullare.`,
-      "Cancella",
-      () => {
-        pt = null;
-        delete S.days[sel];
-        save();
-        keep = 1;
-        render();
-      },
-    );
+    pt = null;
+    delete S.days[sel];
+    save();
+    keep = 1;
+    render();
   };
   const K = iso(cur).slice(0, 7),
     sp = (f, v) => {
@@ -1085,8 +1249,8 @@ const mn = (s) => s.replace(/\s+/g, "").toLowerCase(),
   money = /^-?[\d.]+,\d{2}\s*€?$/,
   N = (v) => (v == null || v === "" ? null : num(v)),
   esc = (v) => String(v).replace(/'/g, "&#39;").replace(/</g, "&lt;");
-async function readPdf2(buf) {
-  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf.slice(0)) })
+async function readPdf2(f) {
+  const pdf = await pdfjsLib.getDocument({ data: await f.arrayBuffer() })
       .promise,
     pg = [];
   for (let i = 1; i <= pdf.numPages; i++) {
@@ -1293,7 +1457,10 @@ function vPay2() {
 ${row("Ore ordinarie", fmtH(l.ore))}
 ${row("Ore straordinarie", l.straord ? fmtH(l.straord) : "—")}
 ${row("Paga oraria base", hr ? fmt(hr) + " €/h" : "—", hn)}
-${row("TFR accantonato al 31/12", eur(l.tfrFondo))}</details>`
+${row("TFR accantonato al 31/12", eur(l.tfrFondo))}</details>
+<details class="card cl" data-c="fp"${op("fp")}><summary><h3 class="fh">Ferie e permessi</h3></summary>
+${row("Ferie residue", ore(l.ferieSaldo), l.ferieSaldo != null ? "≈ " + fmt(l.ferieSaldo / av) + " giorni" : "")}
+${row("Permessi ed ex-festività", ore(pe))}</details>`
       : ""
   }
 <div class="card"><h3 class="fh">Riepilogo</h3>
@@ -1355,8 +1522,7 @@ function uploadModal(f) {
             u1.querySelector("#mc2").onclick = close;
           };
         try {
-          const buf = await f.arrayBuffer(),
-            pg = await readPdf2(buf),
+          const pg = await readPdf2(f),
             txt = pg.map((p) => p.txt).join("\n");
           if (txt.trim().length < 30)
             return fail(
@@ -1389,8 +1555,8 @@ function uploadModal(f) {
           u2.innerHTML =
             `<div class="k kc" style="margin-bottom:12px"><b>${lab}${R.netto != null ? " · " + fmt(R.netto) + " €" : ""}</b><span>Letti ${found} campi su ${FD.length}. Controlla i dati e correggi quelli vuoti o sbagliati prima di salvare.</span></div>` +
             G.map(
-              ([t, K]) =>
-                `<details><summary>${t}</summary><div class="fg">${K.map(fld).join("")}</div></details>`,
+              ([t, K, o]) =>
+                `<details${o ? " open" : ""}><summary>${t}</summary><div class="fg">${K.map(fld).join("")}</div></details>`,
             ).join("") +
             `<details><summary>Testo estratto</summary><pre>${esc(txt)}</pre></details>
 <p id="uer" class="neg" style="margin:10px 0 0"></p>
@@ -1414,26 +1580,15 @@ function uploadModal(f) {
                 "Inserisci il periodo nel formato AAAA-MM (es. 2026-09).";
               return;
             }
-            try {
-              if (navigator.storage && navigator.storage.persist)
-                navigator.storage.persist().catch(() => {});
-              await pdfPut(o.id, buf.slice(0));
-              o.pdf = true;
-            } catch (err) {
-              if (!u2.dataset.w) {
-                u2.dataset.w = "1";
-                u2.querySelector("#uer").textContent =
-                  "Non riesco a conservare il PDF (" +
-                  ((err && err.name) || "errore") +
-                  "). Tocca di nuovo Salva busta per salvare solo i dati.";
-                return;
-              }
-            }
             if (o.hire && !S.set.hire) S.set.hire = o.hire;
             S.pay
               .filter((p) => p.per && p.per === o.per)
               .forEach((p) => pdfDel(p.id).catch(() => {}));
             S.pay = S.pay.filter((p) => !(p.per && p.per === o.per));
+            try {
+              await pdfPut(o.id, await f.arrayBuffer());
+              o.pdf = true;
+            } catch (err) {}
             S.pay.push(o);
             save();
             close();
@@ -1498,8 +1653,7 @@ document.querySelectorAll("nav button").forEach(
       render();
     }),
 );
-applyTema();
-render();
+boot();
 (function () {
   const K = "oreInstallAsk",
     g = (k) => {
