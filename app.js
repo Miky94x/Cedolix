@@ -498,6 +498,72 @@ function hoursModal(k) {
     },
   );
 }
+function feriCalc(a, b) {
+  // giorni da segnare come ferie tra a e b (AAAA-MM-GG):
+  // niente domeniche e festivi; il sabato non conta nelle settimane complete (lun-ven tutti inclusi)
+  if (!a || !b || a > b) return { keys: [], tot: 0 };
+  const keys = [],
+    H = {};
+  let tot = 0;
+  for (let d = pd(a); iso(d) <= b; d.setDate(d.getDate() + 1)) {
+    tot++;
+    const k = iso(d),
+      y = d.getFullYear();
+    H[y] = H[y] || holidays(y);
+    if (d.getDay() === 0 || H[y][k]) continue;
+    if (d.getDay() === 6) {
+      const lun = iso(new Date(y, d.getMonth(), d.getDate() - 5)),
+        ven = iso(new Date(y, d.getMonth(), d.getDate() - 1));
+      if (a <= lun && b >= ven) continue;
+    }
+    keys.push(k);
+  }
+  return { keys, tot };
+}
+function feriModal(k0) {
+  modal(
+    `<h3>Ferie · scegli il periodo</h3><label>Dal</label><input type="date" id="fa" value="${k0}" style="width:100%"><label>Al</label><input type="date" id="fb" value="${k0}" style="width:100%"><div class="tot"><span>Giorni di ferie</span><b id="fn"></b></div><p id="fs" style="color:var(--mu);font-size:13px;margin:0 0 10px"></p><p id="er" class="neg" style="margin:0 0 10px"></p><div class="row"><button class="b s" id="mc">Annulla</button><button class="b" id="ms">Salva</button></div>`,
+    (m, close) => {
+      const fa = m.querySelector("#fa"),
+        fb = m.querySelector("#fb"),
+        upd = () => {
+          const r = feriCalc(fa.value, fb.value),
+            n = r.keys.length;
+          m.querySelector("#fn").textContent = n
+            ? n + (n === 1 ? " giorno" : " giorni") + " · " + fmtH(n * std())
+            : "—";
+          m.querySelector("#fs").textContent =
+            r.tot > n
+              ? "Domeniche, festivi e sabati delle settimane complete non vengono contati."
+              : "";
+          m.querySelector("#er").textContent = "";
+        };
+      fa.onchange = () => {
+        if (fa.value && (!fb.value || fb.value < fa.value)) fb.value = fa.value;
+        upd();
+      };
+      fb.onchange = upd;
+      m.querySelector("#mc").onclick = close;
+      m.querySelector("#ms").onclick = () => {
+        const r = feriCalc(fa.value, fb.value);
+        if (!r.keys.length) {
+          m.querySelector("#er").textContent =
+            "Nessun giorno lavorativo nel periodo scelto.";
+          return;
+        }
+        r.keys.forEach((k) => {
+          S.days[k] = { t: "ferie" };
+        });
+        pt = null;
+        save();
+        keep = 1;
+        close();
+        render();
+      };
+      upd();
+    },
+  );
+}
 const idb = () =>
     new Promise((res, rej) => {
       // apre senza versione: evita VersionError se il DB sul dispositivo ha già una versione più alta
@@ -917,6 +983,11 @@ function bCal() {
       }),
   );
   $("#dt").onchange = (e) => {
+    if (e.target.value === "ferie") {
+      e.target.value = (pt && pt.k === sel ? pt.t : (S.days[sel] || {}).t) || "";
+      feriModal(sel);
+      return;
+    }
     pt = { k: sel, t: e.target.value };
     keep = 1;
     render();
@@ -1222,10 +1293,7 @@ function vPay2() {
 ${row("Ore ordinarie", fmtH(l.ore))}
 ${row("Ore straordinarie", l.straord ? fmtH(l.straord) : "—")}
 ${row("Paga oraria base", hr ? fmt(hr) + " €/h" : "—", hn)}
-${row("TFR accantonato al 31/12", eur(l.tfrFondo))}</details>
-<details class="card cl" data-c="fp"${op("fp")}><summary><h3 class="fh">Ferie e permessi</h3></summary>
-${row("Ferie residue", ore(l.ferieSaldo), l.ferieSaldo != null ? "≈ " + fmt(l.ferieSaldo / av) + " giorni" : "")}
-${row("Permessi ed ex-festività", ore(pe))}</details>`
+${row("TFR accantonato al 31/12", eur(l.tfrFondo))}</details>`
       : ""
   }
 <div class="card"><h3 class="fh">Riepilogo</h3>
