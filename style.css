@@ -684,3 +684,25 @@ html {
 .cl[open] > summary {
   margin-bottom: 6px;
 }
+
+.ov.full {
+  padding: 0;
+}
+.sheet.full {
+  height: 100%;
+  max-width: none;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: calc(24px + env(safe-area-inset-top, 0px)) 24px
+    calc(24px + env(safe-area-inset-bottom, 0px));
+}
+.sheet.full h3 {
+  font-size: 24px;
+  margin-bottom: 14px;
+}
+.sheet.full p,
+.sheet.full ol {
+  font-size: 18px !important;
+}

@@ -1,4 +1,5 @@
-const $ = (s) => document.querySelector(s);
+const LS = "oreLavoroV1",
+  $ = (s) => document.querySelector(s);
 const def = {
   set: {
     hire: "",
@@ -8,76 +9,29 @@ const def = {
   days: {},
   pay: [],
 };
-let S = JSON.parse(JSON.stringify(def)),
-  blocked = false,
-  warned = false;
-let dbp = null;
-const idb = () =>
-    dbp ||
-    (dbp = new Promise((res, rej) => {
-      const r = indexedDB.open("oreLavoroPdf", 2);
-      r.onupgradeneeded = () => {
-        const d = r.result;
-        if (!d.objectStoreNames.contains("pdf")) d.createObjectStore("pdf");
-        if (!d.objectStoreNames.contains("state")) d.createObjectStore("state");
-      };
-      r.onsuccess = () => res(r.result);
-      r.onerror = () => {
-        dbp = null;
-        rej(r.error);
-      };
-    })),
-  idbDo = async (mode, f, store = "pdf") => {
-    const db = await idb();
-    return new Promise((res, rej) => {
-      const t = db.transaction(store, mode),
-        q = f(t.objectStore(store));
-      t.oncomplete = () => res(q && q.result);
-      t.onerror = () => rej(t.error);
-      t.onabort = () => rej(t.error);
-    });
-  },
-  pdfPut = (id, buf) => idbDo("readwrite", (o) => o.put(buf, id)),
-  pdfGet = (id) => idbDo("readonly", (o) => o.get(id)),
-  pdfDel = (id) => idbDo("readwrite", (o) => o.delete(id)),
-  stGet = () => idbDo("readonly", (o) => o.get("S"), "state"),
-  stPut = (v) => idbDo("readwrite", (o) => o.put(v, "S"), "state");
-const save = () => {
-  if (blocked) return;
-  stPut(S).catch(() => {
-    if (!warned) {
-      warned = true;
-      alert("Impossibile salvare i dati sul dispositivo.");
-    }
-  });
-};
-function normalize() {
-  S.set = { ...def.set, ...(S.set || {}) };
-  S.days = S.days || {};
-  S.pay = S.pay || [];
+let S;
+try {
+  S = JSON.parse(localStorage.getItem(LS)) || def;
+} catch (e) {
+  S = def;
+}
+S.set = { ...def.set, ...S.set };
+(() => {
   const y = new Date().getFullYear();
   if (S.set.patrono && S.set.patronoY == null) S.set.patronoY = y;
   if (S.set.patrono && S.set.patronoY !== y) {
     S.set.patrono = "";
     delete S.set.patronoY;
-    save();
+    try {
+      localStorage.setItem(LS, JSON.stringify(S));
+    } catch (e) {}
   }
-}
-async function boot() {
+})();
+const save = () => {
   try {
-    const v = await stGet();
-    if (v && typeof v === "object") S = v;
-  } catch (e) {
-    blocked = true;
-    alert("Impossibile leggere i dati salvati: le modifiche non verranno salvate. Riavvia l'app.");
-  }
-  normalize();
-  try {
-    if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
+    localStorage.setItem(LS, JSON.stringify(S));
   } catch (e) {}
-  applyTema();
-  render();
-}
+};
 let tab = "h",
   cur = new Date();
 cur.setDate(1);
@@ -283,7 +237,7 @@ function vSet() {
 <label>Santo patrono</label><input type="date" id="pa" style="width:100%" value="${s.patrono ? new Date().getFullYear() + "-" + s.patrono : ""}">
 <button type="button" class="tpk" id="tc"><span>Colore tema</span><i id="tsw" style="background:${s.tema || "#d00cca"}"></i></button>
 <div class="hd"><span>Data di assunzione</span><b>${s.hire ? s.hire.split("-").reverse().join("/") : "verrà letta dalla prima busta paga caricata"}</b></div>
-<div class="row" style="margin-top:14px"><button class="b s" id="tr">Ripristina colore</button><button class="b" id="sv">Salva</button></div><p id="ms" style="color:var(--ac);font-size:17px"></p></div>${bkCard()}<p style="text-align:center;color:var(--mu);font-size:15px;margin:8px 0 0">Cedolix V${V}</p>`;
+<div class="row" style="margin-top:14px"><button class="b s" id="tr">Ripristina colore</button><button class="b" id="sv">Salva</button></div><p id="ms" style="color:var(--ac);font-size:17px"></p></div><p style="text-align:center;color:var(--mu);font-size:15px;margin:8px 0 0">Cedolix V${V}</p>`;
 }
 function colorModal(init, onChange) {
   const cl = (v) => Math.max(0, Math.min(1, v)),
@@ -397,190 +351,7 @@ function applyTema() {
     k.forEach((p) => r.removeProperty(p));
   }
 }
-const bad = (m) => Object.assign(new Error(m), { bk: 1 }),
-  dLong = (d) =>
-    d && !isNaN(d)
-      ? d.toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" })
-      : null,
-  infoBox = (t, msg) =>
-    modal(
-      `<h3>${t}</h3><p style="color:var(--mu);margin:0 0 16px">${msg}</p><div class="row"><button class="b" id="mc">Ok</button></div>`,
-      (m, close) => {
-        m.querySelector("#mc").onclick = close;
-      },
-    );
-function bkCard() {
-  const u = S.set.ultimoBackup,
-    t = dLong(u ? new Date(u) : null) || "mai effettuato";
-  return `<div class="card set" style="margin-top:12px"><h3 class="fh" style="font-size:19px">Backup e ripristino</h3><div class="hd" style="margin-top:12px"><span>Ultimo backup</span><b>${t}</b></div><div class="row" style="margin-top:14px"><button class="b s" id="rs" style="flex:1">Ripristina</button><button class="b" id="bk" style="flex:1">Crea backup</button></div><p style="color:var(--mu);font-size:15px;margin:12px 0 0">Il file zip contiene tutti i dati e i PDF delle buste paga. Il ripristino sostituisce tutto ciò che è presente nell'app.</p></div>`;
-}
-function backupFlow() {
-  modal(
-    `<h3>Backup</h3><div id="bk1"><p style="color:var(--mu);text-align:center;margin:24px 0">Creazione del backup…</p></div>`,
-    (m, close) => {
-      (async () => {
-        const box = m.querySelector("#bk1"),
-          fail = (msg) => {
-            box.innerHTML = `<p class="neg">${msg}</p><div class="row"><button class="b s" id="bc">Chiudi</button></div>`;
-            box.querySelector("#bc").onclick = close;
-          };
-        if (typeof JSZip === "undefined")
-          return fail("Libreria zip non disponibile: connettiti a internet e riprova.");
-        try {
-          const now = new Date().toISOString(),
-            data = JSON.parse(JSON.stringify(S)),
-            z = new JSZip(),
-            ids = [];
-          data.set.ultimoBackup = now;
-          for (const p of S.pay)
-            if (p.pdf) {
-              let b = null;
-              try {
-                b = await pdfGet(p.id);
-              } catch (e) {}
-              if (b) {
-                z.file("pdf/" + p.id + ".pdf", b);
-                ids.push(p.id);
-              }
-            }
-          data.pay.forEach((p) => {
-            p.pdf = ids.includes(p.id);
-          });
-          z.file(
-            "dati.json",
-            JSON.stringify({ app: "Cedolix", schema: 1, versione: V, creato: now, pdf: ids, stato: data }, null, 1),
-          );
-          const blob = await z.generateAsync({ type: "blob", compression: "DEFLATE" }),
-            name = "cedolix-backup-" + iso(new Date()) + ".zip",
-            file = new File([blob], name, { type: "application/zip" });
-          box.innerHTML = `<p style="color:var(--mu);margin:0 0 16px">File <b>${name}</b> · ${(blob.size / 1048576).toFixed(2).replace(".", ",")} MB<br>${S.pay.length} buste paga, ${ids.length} PDF.</p><div class="row"><button class="b s" id="bc">Chiudi</button><button class="b" id="bs">Salva file</button></div>`;
-          box.querySelector("#bc").onclick = close;
-          box.querySelector("#bs").onclick = async () => {
-            let ok = false;
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-              try {
-                await navigator.share({ files: [file], title: name });
-                ok = true;
-              } catch (e) {
-                if (e && e.name === "AbortError") return;
-              }
-            }
-            if (!ok) {
-              const u = URL.createObjectURL(blob),
-                a = document.createElement("a");
-              a.href = u;
-              a.download = name;
-              document.body.appendChild(a);
-              a.click();
-              a.remove();
-              setTimeout(() => URL.revokeObjectURL(u), 60000);
-            }
-            S.set.ultimoBackup = now;
-            save();
-            close();
-            if (tab === "s") {
-              keep = 1;
-              render();
-            }
-          };
-        } catch (e) {
-          fail("Impossibile creare il backup.");
-        }
-      })();
-    },
-  );
-}
-async function readBackup(f) {
-  if (typeof JSZip === "undefined")
-    throw bad("Libreria zip non disponibile: connettiti a internet e riprova.");
-  let z;
-  try {
-    z = await JSZip.loadAsync(f);
-  } catch (e) {
-    throw bad("Il file non è uno zip valido.");
-  }
-  const jf = z.file("dati.json");
-  if (!jf) throw bad("Manca il file dati.json: non sembra un backup di Cedolix.");
-  let j;
-  try {
-    j = JSON.parse(await jf.async("string"));
-  } catch (e) {
-    throw bad("Il file dati.json non è leggibile.");
-  }
-  if (!j || j.app !== "Cedolix") throw bad("Il file non è un backup di Cedolix.");
-  if (j.schema !== 1) throw bad("Backup creato con una versione incompatibile dell'app.");
-  const st = j.stato;
-  if (
-    !st ||
-    typeof st !== "object" ||
-    !st.set ||
-    typeof st.set !== "object" ||
-    !st.days ||
-    typeof st.days !== "object" ||
-    !Array.isArray(st.pay)
-  )
-    throw bad("I dati contenuti nel backup sono incompleti.");
-  const pdfs = [];
-  for (const p of st.pay)
-    if (p.pdf) {
-      const e = z.file("pdf/" + p.id + ".pdf");
-      if (!e) throw bad("Nel backup manca il PDF della busta " + (p.per || "?") + ".");
-      pdfs.push([p.id, await e.async("arraybuffer")]);
-    }
-  return { creato: j.creato, stato: st, pdfs };
-}
-async function replaceAll(st, pdfs) {
-  const db = await idb();
-  return new Promise((res, rej) => {
-    const t = db.transaction(["pdf", "state"], "readwrite"),
-      P = t.objectStore("pdf");
-    P.clear();
-    pdfs.forEach(([id, buf]) => P.put(buf, id));
-    t.objectStore("state").put(st, "S");
-    t.oncomplete = () => res();
-    t.onerror = () => rej(t.error);
-    t.onabort = () => rej(t.error);
-  });
-}
-function restoreFlow() {
-  const i = document.createElement("input");
-  i.type = "file";
-  i.accept = ".zip,application/zip";
-  i.onchange = async () => {
-    const f = i.files[0];
-    if (!f) return;
-    let B;
-    try {
-      B = await readBackup(f);
-    } catch (e) {
-      return infoBox("Backup non valido", e && e.bk ? e.message : "Impossibile leggere il file.");
-    }
-    const dt = dLong(new Date(B.creato)) || "data sconosciuta";
-    confirmBox(
-      "Sostituire tutti i dati?",
-      `Backup del <b>${dt}</b>: ${B.stato.pay.length} buste paga, ${Object.keys(B.stato.days).length} giorni registrati. I dati attuali dell'app verranno eliminati e sostituiti. L'operazione non si può annullare.`,
-      "Sostituisci",
-      async () => {
-        try {
-          await replaceAll(B.stato, B.pdfs);
-        } catch (e) {
-          return infoBox("Ripristino non riuscito", "I dati attuali non sono stati modificati.");
-        }
-        blocked = false;
-        S = B.stato;
-        normalize();
-        applyTema();
-        keep = 0;
-        render();
-        infoBox("Ripristino completato", "Tutti i dati e i PDF sono stati ripristinati.");
-      },
-    );
-  };
-  i.click();
-}
 function bSet() {
-  $("#bk").onclick = backupFlow;
-  $("#rs").onclick = restoreFlow;
   $("#tc").onclick = () =>
     colorModal(S.set.tema || "#d00cca", (hex) => {
       S.set.tema = hex;
@@ -727,6 +498,25 @@ function hoursModal(k) {
     },
   );
 }
+const idb = () =>
+    new Promise((res, rej) => {
+      const r = indexedDB.open("oreLavoroPdf", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("pdf");
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    }),
+  idbDo = async (mode, f) => {
+    const db = await idb();
+    return new Promise((res, rej) => {
+      const t = db.transaction("pdf", mode),
+        q = f(t.objectStore("pdf"));
+      t.oncomplete = () => res(q && q.result);
+      t.onerror = () => rej(t.error);
+    });
+  },
+  pdfPut = (id, buf) => idbDo("readwrite", (o) => o.put(buf, id)),
+  pdfGet = (id) => idbDo("readonly", (o) => o.get(id)),
+  pdfDel = (id) => idbDo("readwrite", (o) => o.delete(id));
 async function viewPdf(id) {
   const p = S.pay.find((q) => q.id == id);
   if (!p) return;
@@ -1002,8 +792,93 @@ function vCal() {
 <div class="card"><b>Periodo di calcolo di ${MESI[m]}</b> <b class="neg" style="margin-left:6px">Importante!</b><div class="chips"><input type="date" id="ps" value="${ps}"><span>→</span><input type="date" id="pe" value="${pe}"></div></div>
 <div class="card"><div class="row"><b>${GF[D.getDay()]} ${D.getDate()} ${MESI[D.getMonth()]}</b><small style="color:${H[sel] ? "#ef4444" : "var(--mu)"}">${H[sel] || ""}</small></div>
 <div class="chips"><select id="dt">${op("", "Lavoro")}${op("ferie", "Ferie")}${op("permesso", "Permesso")}${op("malattia", "Malattia")}</select>${t === "" ? `<button class="b" id="da">+ Aggiungi turno</button>` : `<button class="b" id="di">Inserisci</button>`}<button class="b s" id="dc">Cancella</button></div>${x.turni && !x.t ? turniTab(x.turni) : ""}</div>
-<div class="card"><div class="grid"><div class="k"><b>${fmtH(st.w + st.fe)}</b><span>Ore effettive (incl. assenze)</span></div><div class="k"><b>${fmtH(st.e)}</b><span>Ore previste</span></div><div class="k"><b class="${st.bal >= 0 ? "pos" : "neg"}">${st.bal > 0 ? "+" : ""}${fmtH(st.bal)}</b><span>Saldo mese</span></div><div class="k"><b>${st.ex} / ${st.hol}</b><span>Ferie / festivi nel mese</span></div></div></div>`;
+<div class="card"><div class="grid"><div class="k"><b>${fmtH(st.w + st.fe)}</b><span>Ore effettive (incl. assenze)</span></div><div class="k"><b>${fmtH(st.e)}</b><span>Ore previste</span></div><div class="k"><b class="${st.bal >= 0 ? "pos" : "neg"}">${st.bal > 0 ? "+" : ""}${fmtH(st.bal)}</b><span>Saldo mese</span></div><div class="k"><b>${st.ex} / ${st.hol}</b><span>Ferie / festivi nel mese</span></div></div></div>${vBustaMese(y, m)}`;
 }
+function meseDati(y, m) {
+  const P = period(y, m),
+    st = monthStats(y, m),
+    H = {};
+  let fer = 0,
+    perm = 0,
+    fest = 0;
+  for (let d = new Date(P.s); d <= P.e; d.setDate(d.getDate() + 1)) {
+    const k = iso(d),
+      x = S.days[k] || {},
+      yy = d.getFullYear();
+    H[yy] = H[yy] || holidays(yy);
+    const o = x.h != null && x.h !== "" ? +x.h : std();
+    if (x.t === "ferie") fer += o;
+    else if (x.t === "permesso") perm += o;
+    else if (x.h > 0 && (H[yy][k] || d.getDay() === 0)) fest += +x.h;
+  }
+  return { st, fer, perm, fest, supp: Math.max(0, st.bal) };
+}
+function bustaMese(y, m) {
+  const k = y + "-" + String(m + 1).padStart(2, "0");
+  return S.pay.find((q) => q.per === k) || null;
+}
+function checkMese(y, m) {
+  const p = bustaMese(y, m);
+  if (!p) return null;
+  const D = meseDati(y, m);
+  return [
+    ["Ore lavorate", D.st.w, (p.ore || 0) + (p.straord || 0)],
+    ["Ore supplementari 35%", D.supp, p.straord || 0],
+    ["Ore festive 30%", D.fest, p.festOre || 0],
+    ["Ferie godute", D.fer, p.ferieGod || 0],
+    ["Permessi", D.perm, p.exGod || 0],
+  ].map(([lab, a, b]) => ({ lab, a, b, diff: a - b, ok: Math.abs(a - b) <= 0.25 }));
+}
+function stimaBusta(y, m) {
+  const k = y + "-" + String(m + 1).padStart(2, "0"),
+    l = S.pay
+      .filter((p) => p.per && p.per <= k && p.lordo && p.netto)
+      .sort((a, b) => b.per.localeCompare(a.per))[0];
+  if (!l) return null;
+  const hr =
+    l.oraria ||
+    (l.ore ? (l.lordo - (l.straordImp || 0)) / (l.ore + (l.ferieGod || 0) + (l.exGod || 0)) : 0);
+  if (!hr) return null;
+  const D = meseDati(y, m),
+    fisso = l.lordo - (l.straordImp || 0),
+    cs = D.supp * hr * 1.35,
+    cf = D.fest * hr * 0.3,
+    lordo = fisso + cs + cf;
+  return { l, D, hr, fisso, cs, cf, lordo, netto: (lordo * l.netto) / l.lordo };
+}
+function vBustaMese(y, m) {
+  const sb = stimaBusta(y, m),
+    ck = checkMese(y, m),
+    r = (lab, val, sub, cls) =>
+      `<div class="fr ${cls || ""}"><div>${lab}${sub ? `<small>${sub}</small>` : ""}</div><b>${val}</b></div>`,
+    eur = (v) => fmt(v) + " €";
+  let h = "";
+  if (sb)
+    h += `<div class="card"><h3 class="fh">Anteprima busta</h3>
+${r("Stipendio fisso", eur(sb.fisso), "dall'ultima busta (" + sb.l.per + ")")}
+${r("Supplementare 35%", eur(sb.cs), fmtH(sb.D.supp) + " × " + fmt(sb.hr) + " €/h")}
+${r("Maggiorazione festivo 30%", eur(sb.cf), fmtH(sb.D.fest) + " × " + fmt(sb.hr * 0.3) + " €/h")}
+${r("Lordo stimato", eur(sb.lordo), "", "tt")}
+${r("Netto stimato", "≈ " + eur(sb.netto), "stima: stesso rapporto netto/lordo dell'ultima busta", "tt")}</div>`;
+  else
+    h += `<div class="card"><h3 class="fh">Anteprima busta</h3><p style="color:var(--mu);margin:6px 0 0">Carica una busta paga per vedere la stima dello stipendio.</p></div>`;
+  if (ck) {
+    const bad = ck.filter((x) => !x.ok),
+      f = (v) => fmtH(v);
+    h += `<div class="card"><h3 class="fh">Confronto con la busta</h3>${
+      bad.length
+        ? bad
+            .map(
+              (x) =>
+                `<div class="fr"><div>${x.lab}<small>app ${f(x.a)} · busta ${f(x.b)}</small></div><b class="neg">${x.diff > 0 ? "+" : ""}${f(x.diff)}</b></div>`,
+            )
+            .join("")
+        : `<div class="fr"><div>Tutto coincide con la busta</div><b class="pos">✓</b></div>`
+    }</div>`;
+  }
+  return h;
+}
+
 function bCal() {
   $("#pv").onclick = () => {
     cur.setMonth(cur.getMonth() - 1);
@@ -1509,7 +1384,8 @@ document.querySelectorAll("nav button").forEach(
       render();
     }),
 );
-boot();
+applyTema();
+render();
 (function () {
   const K = "oreInstallAsk",
     g = (k) => {
@@ -1537,6 +1413,11 @@ boot();
       '<img src="icon-192.png" alt="Cedolix" width="64" height="64" style="border-radius:16px;display:block;margin:0 auto 12px">',
     share =
       '<svg viewBox="0 0 24 24" width="22" height="22" style="vertical-align:-5px;fill:none;stroke:var(--ac);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round" aria-hidden="true"><path d="M12 15V3M8 7l4-4 4 4M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg>',
+    full = (m) => {
+      m.parentElement.onclick = null;
+      m.parentElement.classList.add("full");
+      m.classList.add("full");
+    },
     show = () => {
       const t = iso(new Date());
       if (g(K) === t || document.querySelector(".ov") || standalone()) return;
@@ -1547,6 +1428,7 @@ boot();
           `${logo}<h3 style="text-align:center">Installa Cedolix</h3><p style="color:var(--mu);margin:0 0 16px;text-align:center;font-size:16px">Aggiungi l'app alla schermata Home: si apre a schermo intero e funziona anche senza connessione.</p><div class="row"><button class="b s" id="ni">Non ora</button><button class="b" id="yi">Installa</button></div>`,
           (m, close) => {
             closeM = close;
+            full(m);
             m.querySelector("#ni").onclick = close;
             m.querySelector("#yi").onclick = () => {
               const p = dp;
@@ -1561,6 +1443,7 @@ boot();
           `${logo}<h3 style="text-align:center">Installa Cedolix</h3><p style="color:var(--mu);margin:0 0 12px;text-align:center;font-size:16px">Su iPhone e iPad si installa da Safari:</p><ol style="margin:0 0 16px;padding-left:22px;font-size:16px;line-height:1.7"><li>Tocca il tasto Condividi ${share} nella barra di Safari</li><li>Scorri e tocca <b>Aggiungi alla schermata Home</b></li><li>Tocca <b>Aggiungi</b></li></ol><div class="row"><button class="b" id="ni">Ho capito</button></div>`,
           (m, close) => {
             closeM = close;
+            full(m);
             m.querySelector("#ni").onclick = close;
           },
         );

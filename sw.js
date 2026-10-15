@@ -1,5 +1,14 @@
-const V = "cedolix-1.9.0",
-  LOCAL = ["./", "index.html", "style.css", "app.js", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"],
+const V = "cedolix-1.9.1",
+  LOCAL = [
+    "./",
+    "index.html",
+    "style.css",
+    "app.js",
+    "manifest.webmanifest",
+    "icon-192.png",
+    "icon-512.png",
+    "apple-touch-icon.png",
+  ],
   OPT = ["icon-maskable-512.png"],
   CDN = [
     "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",
@@ -10,16 +19,22 @@ const V = "cedolix-1.9.0",
 const key = (u) => u.origin + u.pathname;
 self.addEventListener("install", (e) => {
   e.waitUntil(
-    caches.open(V).then(async (c) => {
-      await c.addAll(LOCAL);
-      await Promise.all(OPT.concat(CDN).map((u) => c.add(u).catch(() => {})));
-    }).then(() => self.skipWaiting()),
+    caches
+      .open(V)
+      .then(async (c) => {
+        await c.addAll(LOCAL);
+        await Promise.all(OPT.concat(CDN).map((u) => c.add(u).catch(() => {})));
+      })
+      .then(() => self.skipWaiting()),
   );
 });
 self.addEventListener("activate", (e) => {
   e.waitUntil(
-    caches.keys()
-      .then((k) => Promise.all(k.filter((n) => n !== V).map((n) => caches.delete(n))))
+    caches
+      .keys()
+      .then((k) =>
+        Promise.all(k.filter((n) => n !== V).map((n) => caches.delete(n))),
+      )
       .then(() => self.clients.claim()),
   );
 });
@@ -39,7 +54,15 @@ self.addEventListener("fetch", (e) => {
           return res;
         })
         .catch(() =>
-          caches.match(key(u)).then((m) => m || (r.mode === "navigate" ? caches.match("index.html") : Response.error())),
+          caches
+            .match(key(u))
+            .then(
+              (m) =>
+                m ||
+                (r.mode === "navigate"
+                  ? caches.match("index.html")
+                  : Response.error()),
+            ),
         ),
     );
   } else {
