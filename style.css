@@ -227,7 +227,7 @@ pre {
   font: inherit;
   font-size: 16px;
   position: relative;
-  padding: 0;
+  padding: 0 0 10px;
   cursor: pointer;
 }
 .dy.ho {
@@ -257,7 +257,7 @@ pre {
 }
 .dy i {
   position: absolute;
-  bottom: 6px;
+  bottom: 4px;
   left: 50%;
   margin-left: -3px;
   width: 6px;
