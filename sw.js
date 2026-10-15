@@ -1,4 +1,4 @@
-const V = "cedolix-1.8.3",
+const V = "cedolix-1.8.5",
   LOCAL = ["./", "index.html", "style.css", "app.js", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"],
   OPT = ["icon-maskable-512.png"],
   CDN = [
