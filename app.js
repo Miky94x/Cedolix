@@ -268,6 +268,7 @@ function bSet() {
   };
 }
 const IC = {
+  u: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>',
   e: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
   m: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>',
   f: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
@@ -1057,8 +1058,102 @@ ${row("Anzianità", a ? a.y + " a " + a.m + " m " + a.d + " g" : "—", a ? a.to
 ${row("Buste salvate", P.length)}
 ${row("Netto medio", n.length ? eur(tot / n.length) : "—")}
 ${row("Netto totale salvato", n.length ? eur(tot) : "—")}</div>
-<div class="card"><h3 class="fh">Carica busta paga</h3><input type="file" id="pf" accept="application/pdf"><p style="color:var(--mu);font-size:13px">Carica il PDF della busta (anche di 2 pagine). Viene conservato solo sul tuo dispositivo, così puoi riaprirlo con l'occhio; controlla i campi prima di salvare.</p><div id="res"></div></div>
+<button class="b" id="pu" style="width:100%;margin-bottom:12px">+ Carica busta paga</button>
 ${payList(P)}`;
+}
+const GR = [
+  ["Periodo e contratto", ["per", "azienda", "hire", "liv", "qual", "pt"], 1],
+  ["Retribuzione", ["lordo", "tratt", "netto", "ore", "straord", "straordImp", "oraria", "ggLav", "festOre"], 1],
+  ["Ferie", ["ferieGod", "ferieAP", "ferieMat", "ferieGodAnno", "ferieSaldo"]],
+  ["Permessi ed ex-festività", ["exGod", "exAP", "exMat", "exGodAnno", "exSaldo", "permAP", "permMat", "permGodAnno", "permSaldo"]],
+  ["TFR", ["tfrFondo", "tfrQuota", "tfrAnno"]],
+  ["Imposte", ["impIrpef", "irpef", "progImpInps", "progImpIrpef", "progIrpef"]],
+];
+function uploadModal() {
+  modal(
+    `<h3 style="margin:0 0 14px">Carica busta paga</h3>
+<div id="up1"><label class="up" for="pf">${IC.u}<b>Scegli il PDF della busta</b><span>Anche di 2 pagine. Resta solo sul tuo dispositivo.</span></label><input type="file" id="pf" accept="application/pdf" style="display:none"><div class="row" style="margin-top:14px"><button class="b s" id="mc">Annulla</button></div></div><div id="up2"></div>`,
+    (m, close) => {
+      m.querySelector("#mc").onclick = close;
+      m.querySelector("#pf").onchange = async (e) => {
+        const f = e.target.files[0];
+        if (!f) return;
+        const u1 = m.querySelector("#up1"),
+          u2 = m.querySelector("#up2"),
+          fail = (msg) => {
+            u1.innerHTML = `<p class="neg">${msg}</p><div class="row"><button class="b s" id="mc2">Chiudi</button></div>`;
+            u1.querySelector("#mc2").onclick = close;
+          };
+        u1.innerHTML = `<p style="color:var(--mu);text-align:center;margin:24px 0">Lettura di <b>${esc(f.name)}</b>…</p>`;
+        try {
+          const pg = await readPdf2(f),
+            txt = pg.map((p) => p.txt).join("\n");
+          if (txt.trim().length < 30)
+            return fail("Nessun testo trovato: il PDF sembra una scansione. Serve un PDF digitale.");
+          const R = parse2(pg),
+            L = Object.fromEntries(FD),
+            ea = (v) => esc(v).replace(/"/g, "&quot;"),
+            has = (k) => R[k] != null && R[k] !== "",
+            found = FD.filter(([k]) => has(k)).length,
+            used = GR.flatMap((g) => g[1]),
+            G = GR.concat(
+              FD.map((x) => x[0]).filter((k) => !used.includes(k)).length
+                ? [["Altro", FD.map((x) => x[0]).filter((k) => !used.includes(k))]]
+                : [],
+            ),
+            fld = (k) =>
+              `<div><label>${L[k]}</label><input data-p="${k}" class="${(k === "per" || k === "netto") && !has(k) ? "miss" : ""}" value="${has(k) ? (TXT.includes(k) ? ea(R[k]) : String(R[k]).replace(".", ",")) : ""}"></div>`,
+            lab = R.per
+              ? cap(MESI[+R.per.slice(5, 7) - 1] || "") + " " + R.per.slice(0, 4)
+              : "periodo non trovato";
+          u1.remove();
+          u2.innerHTML = `<div class="k kc" style="margin-bottom:12px"><b>${lab}${R.netto != null ? " · " + fmt(R.netto) + " €" : ""}</b><span>Letti ${found} campi su ${FD.length}. Controlla i dati e correggi quelli vuoti o sbagliati prima di salvare.</span></div>` +
+            G.map(
+              ([t, K, o]) =>
+                `<details${o ? " open" : ""}><summary>${t}</summary><div class="fg">${K.map(fld).join("")}</div></details>`,
+            ).join("") +
+            `<details><summary>Testo estratto</summary><pre>${esc(txt)}</pre></details>
+<p id="uer" class="neg" style="margin:10px 0 0"></p>
+<div class="stk"><div class="row"><button class="b s" id="uc">Annulla</button><button class="b" id="sp">Salva busta</button></div></div>`;
+          u2.querySelector("#uc").onclick = close;
+          u2.querySelector("#sp").onclick = async () => {
+            const o = { id: Date.now() };
+            u2.querySelectorAll("[data-p]").forEach((i) => {
+              const k = i.dataset.p,
+                v = i.value.trim();
+              o[k] = TXT.includes(k)
+                ? v
+                : v === ""
+                  ? null
+                  : v.includes(",")
+                    ? num(v)
+                    : parseFloat(v);
+            });
+            if (!/^\d{4}-\d{2}$/.test(o.per || "")) {
+              u2.querySelector("#uer").textContent =
+                "Inserisci il periodo nel formato AAAA-MM (es. 2026-09).";
+              return;
+            }
+            if (o.hire && !S.set.hire) S.set.hire = o.hire;
+            S.pay
+              .filter((p) => p.per && p.per === o.per)
+              .forEach((p) => pdfDel(p.id).catch(() => {}));
+            S.pay = S.pay.filter((p) => !(p.per && p.per === o.per));
+            try {
+              await pdfPut(o.id, await f.arrayBuffer());
+              o.pdf = true;
+            } catch (err) {}
+            S.pay.push(o);
+            save();
+            close();
+            render();
+          };
+        } catch (err) {
+          fail("Errore nella lettura del PDF.");
+        }
+      };
+    },
+  );
 }
 function bPay2() {
   document.querySelectorAll("[data-del]").forEach(
@@ -1085,56 +1180,7 @@ function bPay2() {
   document
     .querySelectorAll("[data-view]")
     .forEach((b) => (b.onclick = () => viewPdf(b.dataset.view)));
-  $("#pf").onchange = async (e) => {
-    const f = e.target.files[0];
-    if (!f) return;
-    $("#res").textContent = "Lettura in corso…";
-    try {
-      const pg = await readPdf2(f),
-        txt = pg.map((p) => p.txt).join("\n");
-      if (txt.trim().length < 30) {
-        $("#res").innerHTML =
-          "<p class='neg'>Nessun testo trovato: il PDF sembra una scansione. Serve un PDF digitale.</p>";
-        return;
-      }
-      const R = parse2(pg);
-      $("#res").innerHTML =
-        `<p style='color:var(--mu);font-size:13px'>${pg.length} pagina/e lette. Controlla i campi:</p><div class='fg'>` +
-        FD.map(
-          ([k, l]) =>
-            `<div><label>${l}</label><input data-p='${k}' value='${R[k] == null ? "" : TXT.includes(k) ? esc(R[k]) : String(R[k]).replace(".", ",")}'></div>`,
-        ).join("") +
-        `</div><div class='row' style='margin-top:12px'><button class='b' id='sp'>Salva busta</button></div><details><summary>Testo estratto</summary><pre>${esc(txt)}</pre></details>`;
-      $("#sp").onclick = async () => {
-        const o = { id: Date.now() };
-        document.querySelectorAll("[data-p]").forEach((i) => {
-          const k = i.dataset.p,
-            v = i.value.trim();
-          o[k] = TXT.includes(k)
-            ? v
-            : v === ""
-              ? null
-              : v.includes(",")
-                ? num(v)
-                : parseFloat(v);
-        });
-        if (o.hire && !S.set.hire) S.set.hire = o.hire;
-        S.pay
-          .filter((p) => p.per && p.per === o.per)
-          .forEach((p) => pdfDel(p.id).catch(() => {}));
-        S.pay = S.pay.filter((p) => !(p.per && p.per === o.per));
-        try {
-          await pdfPut(o.id, await f.arrayBuffer());
-          o.pdf = true;
-        } catch (err) {}
-        S.pay.push(o);
-        save();
-        render();
-      };
-    } catch (err) {
-      $("#res").innerHTML = "<p class='neg'>Errore nella lettura del PDF.</p>";
-    }
-  };
+  $("#pu").onclick = uploadModal;
 }
 document.querySelectorAll("nav button").forEach(
   (b) =>
