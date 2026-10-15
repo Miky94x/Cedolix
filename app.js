@@ -1241,3 +1241,69 @@ document.querySelectorAll("nav button").forEach(
 );
 applyTema();
 render();
+(function () {
+  const K = "oreInstallAsk",
+    g = (k) => {
+      try {
+        return localStorage.getItem(k);
+      } catch (e) {
+        return null;
+      }
+    },
+    st = (k, v) => {
+      try {
+        localStorage.setItem(k, v);
+      } catch (e) {}
+    },
+    standalone = () =>
+      (window.matchMedia && matchMedia("(display-mode: standalone)").matches) ||
+      navigator.standalone === true,
+    ios =
+      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  if (!/^https?:/.test(location.protocol) || standalone()) return;
+  let dp = null,
+    closeM = null;
+  const logo =
+      '<img src="icon-192.png" alt="" width="64" height="64" style="border-radius:16px;display:block;margin:0 auto 12px">',
+    share =
+      '<svg viewBox="0 0 24 24" width="22" height="22" style="vertical-align:-5px;fill:none;stroke:var(--ac);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round" aria-hidden="true"><path d="M12 15V3M8 7l4-4 4 4M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg>',
+    show = () => {
+      const t = iso(new Date());
+      if (g(K) === t || document.querySelector(".ov") || standalone()) return;
+      if (!dp && !ios) return;
+      st(K, t);
+      if (dp)
+        modal(
+          `${logo}<h3 style="text-align:center">Installa Ore Lavoro</h3><p style="color:var(--mu);margin:0 0 16px;text-align:center;font-size:16px">Aggiungi l'app alla schermata Home: si apre a schermo intero e funziona anche senza connessione.</p><div class="row"><button class="b s" id="ni">Non ora</button><button class="b" id="yi">Installa</button></div>`,
+          (m, close) => {
+            closeM = close;
+            m.querySelector("#ni").onclick = close;
+            m.querySelector("#yi").onclick = () => {
+              const p = dp;
+              dp = null;
+              close();
+              p.prompt();
+            };
+          },
+        );
+      else
+        modal(
+          `${logo}<h3 style="text-align:center">Installa Ore Lavoro</h3><p style="color:var(--mu);margin:0 0 12px;text-align:center;font-size:16px">Su iPhone e iPad si installa da Safari:</p><ol style="margin:0 0 16px;padding-left:22px;font-size:16px;line-height:1.7"><li>Tocca il tasto Condividi ${share} nella barra di Safari</li><li>Scorri e tocca <b>Aggiungi alla schermata Home</b></li><li>Tocca <b>Aggiungi</b></li></ol><div class="row"><button class="b" id="ni">Ho capito</button></div>`,
+          (m, close) => {
+            closeM = close;
+            m.querySelector("#ni").onclick = close;
+          },
+        );
+    };
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    dp = e;
+    setTimeout(show, 800);
+  });
+  window.addEventListener("appinstalled", () => {
+    dp = null;
+    if (closeM) closeM();
+  });
+  if (ios) setTimeout(show, 1200);
+})();
