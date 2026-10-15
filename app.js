@@ -16,6 +16,17 @@ try {
   S = def;
 }
 S.set = { ...def.set, ...S.set };
+(() => {
+  const y = new Date().getFullYear();
+  if (S.set.patrono && S.set.patronoY == null) S.set.patronoY = y;
+  if (S.set.patrono && S.set.patronoY !== y) {
+    S.set.patrono = "";
+    delete S.set.patronoY;
+    try {
+      localStorage.setItem(LS, JSON.stringify(S));
+    } catch (e) {}
+  }
+})();
 const save = () => {
   try {
     localStorage.setItem(LS, JSON.stringify(S));
@@ -253,16 +264,18 @@ ${row("Saldo", ore(f.pe), "tt", dal)}</div>`;
 }
 function vSet() {
   const s = S.set;
-  return `<h2>Impostazioni</h2><div class="card"><label>Ore settimanali da contratto</label><input type="number" step="0.25" id="wh" value="${s.wh}">
+  return `<h2>Impostazioni</h2><div class="card set"><label>Ore settimanali da contratto</label><input type="number" step="0.25" id="wh" value="${s.wh}">
 <label>Santo patrono</label><input type="date" id="pa" style="width:100%" value="${s.patrono ? new Date().getFullYear() + "-" + s.patrono : ""}">
-<p style="color:var(--mu);font-size:13px">Data di assunzione: ${s.hire ? s.hire.split("-").reverse().join("/") : "verrà letta dalla prima busta paga caricata"}.</p>
-<div class="row" style="margin-top:14px"><button class="b" id="sv">Salva</button></div><p id="ms" style="color:var(--ac)"></p></div>`;
+<div class="hd"><span>Data di assunzione</span><b>${s.hire ? s.hire.split("-").reverse().join("/") : "verrà letta dalla prima busta paga caricata"}</b></div>
+<div class="row" style="margin-top:14px"><button class="b" id="sv">Salva</button></div><p id="ms" style="color:var(--ac);font-size:17px"></p></div>`;
 }
 function bSet() {
   $("#sv").onclick = () => {
     const s = S.set;
     s.wh = +$("#wh").value || 0;
     s.patrono = $("#pa").value ? $("#pa").value.slice(5) : "";
+    if (s.patrono) s.patronoY = new Date().getFullYear();
+    else delete s.patronoY;
     save();
     $("#ms").textContent = "Salvato ✓";
   };
@@ -1069,22 +1082,18 @@ const GR = [
   ["TFR", ["tfrFondo", "tfrQuota", "tfrAnno"]],
   ["Imposte", ["impIrpef", "irpef", "progImpInps", "progImpIrpef", "progIrpef"]],
 ];
-function uploadModal() {
+function uploadModal(f) {
   modal(
     `<h3 style="margin:0 0 14px">Carica busta paga</h3>
-<div id="up1"><label class="up" for="pf">${IC.u}<b>Scegli il PDF della busta</b><span>Anche di 2 pagine. Resta solo sul tuo dispositivo.</span></label><input type="file" id="pf" accept="application/pdf" style="display:none"><div class="row" style="margin-top:14px"><button class="b s" id="mc">Annulla</button></div></div><div id="up2"></div>`,
+<div id="up1"><p style="color:var(--mu);text-align:center;margin:24px 0">Lettura di <b>${esc(f.name)}</b>…</p></div><div id="up2"></div>`,
     (m, close) => {
-      m.querySelector("#mc").onclick = close;
-      m.querySelector("#pf").onchange = async (e) => {
-        const f = e.target.files[0];
-        if (!f) return;
+      (async () => {
         const u1 = m.querySelector("#up1"),
           u2 = m.querySelector("#up2"),
           fail = (msg) => {
             u1.innerHTML = `<p class="neg">${msg}</p><div class="row"><button class="b s" id="mc2">Chiudi</button></div>`;
             u1.querySelector("#mc2").onclick = close;
           };
-        u1.innerHTML = `<p style="color:var(--mu);text-align:center;margin:24px 0">Lettura di <b>${esc(f.name)}</b>…</p>`;
         try {
           const pg = await readPdf2(f),
             txt = pg.map((p) => p.txt).join("\n");
@@ -1151,7 +1160,7 @@ function uploadModal() {
         } catch (err) {
           fail("Errore nella lettura del PDF.");
         }
-      };
+      })();
     },
   );
 }
@@ -1180,7 +1189,13 @@ function bPay2() {
   document
     .querySelectorAll("[data-view]")
     .forEach((b) => (b.onclick = () => viewPdf(b.dataset.view)));
-  $("#pu").onclick = uploadModal;
+  $("#pu").onclick = () => {
+    const i = document.createElement("input");
+    i.type = "file";
+    i.accept = "application/pdf";
+    i.onchange = () => i.files[0] && uploadModal(i.files[0]);
+    i.click();
+  };
 }
 document.querySelectorAll("nav button").forEach(
   (b) =>
