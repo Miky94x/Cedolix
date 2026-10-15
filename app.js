@@ -266,15 +266,14 @@ function vSet() {
   const s = S.set;
   return `<h2>Impostazioni</h2><div class="card set"><label>Ore settimanali da contratto</label><input type="number" step="0.25" id="wh" value="${s.wh}">
 <label>Santo patrono</label><input type="date" id="pa" style="width:100%" value="${s.patrono ? new Date().getFullYear() + "-" + s.patrono : ""}">
-<label class="tpk"><span>Colore tema</span><input type="color" id="tc" value="${s.tema || "#0f766e"}"></label>
+<label class="tpk"><span>Colore tema</span><i id="tsw" style="background:${s.tema || "#0f766e"}"></i><input type="color" id="tc" value="${s.tema || "#0f766e"}"></label>
 <div class="hd"><span>Data di assunzione</span><b>${s.hire ? s.hire.split("-").reverse().join("/") : "verrà letta dalla prima busta paga caricata"}</b></div>
 <div class="row" style="margin-top:14px"><button class="b s" id="tr">Ripristina colore</button><button class="b" id="sv">Salva</button></div><p id="ms" style="color:var(--ac);font-size:17px"></p></div>`;
 }
 function applyTema() {
   const c = S.set.tema,
     r = document.documentElement.style,
-    k = ["--ac", "--hero", "--on", "--onh"],
-    mt = document.querySelector('meta[name="theme-color"]');
+    k = ["--ac", "--hero", "--on", "--onh"];
   if (c && /^#[0-9a-f]{6}$/i.test(c)) {
     const v = [1, 3, 5].map((i) => {
         const x = parseInt(c.slice(i, i + 2), 16) / 255;
@@ -286,15 +285,14 @@ function applyTema() {
     r.setProperty("--hero", c);
     r.setProperty("--on", on);
     r.setProperty("--onh", on);
-    if (mt) mt.content = c;
   } else {
     k.forEach((p) => r.removeProperty(p));
-    if (mt) mt.content = "#0f766e";
   }
 }
 function bSet() {
   $("#tc").oninput = (e) => {
     S.set.tema = e.target.value;
+    $("#tsw").style.background = e.target.value;
     applyTema();
     save();
   };
@@ -1265,7 +1263,7 @@ render();
   let dp = null,
     closeM = null;
   const logo =
-      '<img src="icon-192.png" alt="" width="64" height="64" style="border-radius:16px;display:block;margin:0 auto 12px">',
+      '<img src="icon-192.png" alt="Cedolix" width="64" height="64" style="border-radius:16px;display:block;margin:0 auto 12px">',
     share =
       '<svg viewBox="0 0 24 24" width="22" height="22" style="vertical-align:-5px;fill:none;stroke:var(--ac);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round" aria-hidden="true"><path d="M12 15V3M8 7l4-4 4 4M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg>',
     show = () => {
@@ -1275,7 +1273,7 @@ render();
       st(K, t);
       if (dp)
         modal(
-          `${logo}<h3 style="text-align:center">Installa Ore Lavoro</h3><p style="color:var(--mu);margin:0 0 16px;text-align:center;font-size:16px">Aggiungi l'app alla schermata Home: si apre a schermo intero e funziona anche senza connessione.</p><div class="row"><button class="b s" id="ni">Non ora</button><button class="b" id="yi">Installa</button></div>`,
+          `${logo}<h3 style="text-align:center">Installa Cedolix</h3><p style="color:var(--mu);margin:0 0 16px;text-align:center;font-size:16px">Aggiungi l'app alla schermata Home: si apre a schermo intero e funziona anche senza connessione.</p><div class="row"><button class="b s" id="ni">Non ora</button><button class="b" id="yi">Installa</button></div>`,
           (m, close) => {
             closeM = close;
             m.querySelector("#ni").onclick = close;
@@ -1289,7 +1287,7 @@ render();
         );
       else
         modal(
-          `${logo}<h3 style="text-align:center">Installa Ore Lavoro</h3><p style="color:var(--mu);margin:0 0 12px;text-align:center;font-size:16px">Su iPhone e iPad si installa da Safari:</p><ol style="margin:0 0 16px;padding-left:22px;font-size:16px;line-height:1.7"><li>Tocca il tasto Condividi ${share} nella barra di Safari</li><li>Scorri e tocca <b>Aggiungi alla schermata Home</b></li><li>Tocca <b>Aggiungi</b></li></ol><div class="row"><button class="b" id="ni">Ho capito</button></div>`,
+          `${logo}<h3 style="text-align:center">Installa Cedolix</h3><p style="color:var(--mu);margin:0 0 12px;text-align:center;font-size:16px">Su iPhone e iPad si installa da Safari:</p><ol style="margin:0 0 16px;padding-left:22px;font-size:16px;line-height:1.7"><li>Tocca il tasto Condividi ${share} nella barra di Safari</li><li>Scorri e tocca <b>Aggiungi alla schermata Home</b></li><li>Tocca <b>Aggiungi</b></li></ol><div class="row"><button class="b" id="ni">Ho capito</button></div>`,
           (m, close) => {
             closeM = close;
             m.querySelector("#ni").onclick = close;
