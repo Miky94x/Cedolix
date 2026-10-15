@@ -235,7 +235,7 @@ function vSet() {
   const s = S.set;
   return `<h2>Impostazioni</h2><div class="card set"><label>Ore settimanali da contratto</label><input type="number" step="0.25" id="wh" value="${s.wh}">
 <label>Santo patrono</label><input type="date" id="pa" style="width:100%" value="${s.patrono ? new Date().getFullYear() + "-" + s.patrono : ""}">
-<button type="button" class="tpk" id="tc"><span>Colore tema</span><i id="tsw" style="background:${s.tema || "#0f766e"}"></i></button>
+<button type="button" class="tpk" id="tc"><span>Colore tema</span><i id="tsw" style="background:${s.tema || "#d00cca"}"></i></button>
 <div class="hd"><span>Data di assunzione</span><b>${s.hire ? s.hire.split("-").reverse().join("/") : "verrà letta dalla prima busta paga caricata"}</b></div>
 <div class="row" style="margin-top:14px"><button class="b s" id="tr">Ripristina colore</button><button class="b" id="sv">Salva</button></div><p id="ms" style="color:var(--ac);font-size:17px"></p></div><p style="text-align:center;color:var(--mu);font-size:15px;margin:8px 0 0">Cedolix V${V}</p>`;
 }
@@ -353,7 +353,7 @@ function applyTema() {
 }
 function bSet() {
   $("#tc").onclick = () =>
-    colorModal(S.set.tema || "#0f766e", (hex) => {
+    colorModal(S.set.tema || "#d00cca", (hex) => {
       S.set.tema = hex;
       applyTema();
       save();
