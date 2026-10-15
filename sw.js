@@ -1,14 +1,17 @@
-const V = "ore-lavoro-v1",
+const V = "cedolix-1.8.2",
   LOCAL = ["./", "index.html", "style.css", "app.js", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"],
+  OPT = ["icon-maskable-512.png"],
   CDN = [
     "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",
     "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js",
   ];
+// chiave di cache senza query (?v=...): una sola copia per file
+const key = (u) => u.origin + u.pathname;
 self.addEventListener("install", (e) => {
   e.waitUntil(
     caches.open(V).then(async (c) => {
       await c.addAll(LOCAL);
-      await Promise.all(CDN.map((u) => c.add(u).catch(() => {})));
+      await Promise.all(OPT.concat(CDN).map((u) => c.add(u).catch(() => {})));
     }).then(() => self.skipWaiting()),
   );
 });
@@ -24,18 +27,18 @@ self.addEventListener("fetch", (e) => {
   if (r.method !== "GET") return;
   const u = new URL(r.url);
   if (u.origin === location.origin) {
-    // rete prima (le versioni ?v=... cambiano a ogni apertura), cache se offline
+    // rete prima, cache se offline
     e.respondWith(
       fetch(r)
         .then((res) => {
           if (res.ok) {
             const cp = res.clone();
-            caches.open(V).then((c) => c.put(r, cp));
+            caches.open(V).then((c) => c.put(key(u), cp));
           }
           return res;
         })
         .catch(() =>
-          caches.match(r, { ignoreSearch: true }).then((m) => m || (r.mode === "navigate" ? caches.match("index.html") : Response.error())),
+          caches.match(key(u)).then((m) => m || (r.mode === "navigate" ? caches.match("index.html") : Response.error())),
         ),
     );
   } else {

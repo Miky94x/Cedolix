@@ -152,18 +152,6 @@ label {
   align-items: center;
   justify-content: space-between;
 }
-.wk {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
-  text-align: center;
-  font-size: 12px;
-}
-.wk input {
-  width: 100%;
-  padding: 6px 2px;
-  text-align: center;
-}
 pre {
   white-space: pre-wrap;
   max-height: 200px;
@@ -201,45 +189,6 @@ pre {
   height: 100%;
   background: currentColor;
   border-radius: 6px;
-}
-.tiles {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-.tile {
-  border: 1px solid var(--bd);
-  background: var(--card);
-  color: var(--tx);
-  border-radius: 14px;
-  padding: 16px;
-  text-align: left;
-  font: inherit;
-}
-.tile span {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  color: var(--ac);
-  background: color-mix(in srgb, var(--ac) 14%, transparent);
-}
-.tile svg {
-  width: 24px;
-  height: 24px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.tile b {
-  display: block;
-  margin-top: 10px;
-}
-.tile small {
-  color: var(--mu);
 }
 .chips {
   display: flex;
@@ -587,34 +536,6 @@ pre {
   padding: 12px;
 }
 
-.up {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 30px 16px;
-  border: 2px dashed var(--bd);
-  border-radius: 16px;
-  background: var(--bg);
-  text-align: center;
-  cursor: pointer;
-}
-.up svg {
-  width: 36px;
-  height: 36px;
-  fill: none;
-  stroke: var(--ac);
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.up b {
-  font-size: 16px;
-}
-.up span {
-  color: var(--mu);
-  font-size: 13px;
-}
 .sheet details {
   border: 1px solid var(--bd);
   border-radius: 12px;
@@ -656,3 +577,10 @@ pre {
 .chh i{top:50%}
 .cpv{width:48px;height:42px;border-radius:10px;border:1px solid var(--bd);flex:none}
 html{background:var(--bg)}
+
+.cl>summary{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;list-style:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.cl>summary::-webkit-details-marker{display:none}
+.cl>summary .fh{margin:0}
+.cl>summary::after{content:"";flex:none;width:9px;height:9px;margin:4px 4px 0 0;border:solid var(--mu);border-width:0 2px 2px 0;transform:rotate(45deg);transition:transform .2s}
+.cl[open]>summary::after{transform:rotate(-135deg);margin-top:8px}
+.cl[open]>summary{margin-bottom:6px}

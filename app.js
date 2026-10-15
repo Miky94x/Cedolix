@@ -201,50 +201,6 @@ function render() {
   window.scrollTo(0, keep ? sy : 0);
   keep = 0;
 }
-function vMese() {
-  const y = cur.getFullYear(),
-    m = cur.getMonth(),
-    h = holidays(y),
-    n = new Date(y, m + 1, 0).getDate(),
-    st = monthStats(y, m);
-  let rows = "";
-  for (let i = 1; i <= n; i++) {
-    const d = new Date(y, m, i),
-      k = iso(d),
-      x = S.days[k] || {},
-      E = exp(d, h),
-      we = d.getDay() % 6 === 0;
-    rows += `<div class="r ${h[k] ? "ho" : we ? "we" : ""}"><div class="d"><b>${GG[d.getDay()]} ${i}</b><small>${h[k] || "previste " + fmtH(E)}</small></div>
-<select data-k="${k}" data-f="t"><option value="">Lavoro</option><option value="ferie"${x.t === "ferie" ? " selected" : ""}>Ferie</option><option value="permesso"${x.t === "permesso" ? " selected" : ""}>Permesso</option><option value="malattia"${x.t === "malattia" ? " selected" : ""}>Malattia</option></select>
-<input type="number" step="0.25" min="0" max="24" data-k="${k}" data-f="h" placeholder="${fmt(E)}" value="${x.h ?? ""}"></div>`;
-  }
-  return `<div class="row"><button class="b s" id="pv">‹</button><h2>${MESI[m]} ${y}</h2><button class="b s" id="nx">›</button></div>
-<div class="card"><div class="grid"><div class="k"><b>${fmtH(st.w + st.fe)}</b><span>Ore effettive (incl. assenze)</span></div><div class="k"><b>${fmtH(st.e)}</b><span>Ore previste</span></div>
-<div class="k"><b class="${st.bal >= 0 ? "pos" : "neg"}">${st.bal > 0 ? "+" : ""}${fmtH(st.bal)}</b><span>Saldo mese</span></div><div class="k"><b>${st.ex} / ${st.hol}</b><span>Ferie / festivi nel mese</span></div></div>
-<small style="color:var(--mu)">Inizio: 1 ${MESI[m]} · Fine: ${n} ${MESI[m]}</small></div><div class="card">${rows}</div>`;
-}
-function bMese() {
-  $("#pv").onclick = () => {
-    cur.setMonth(cur.getMonth() - 1);
-    render();
-  };
-  $("#nx").onclick = () => {
-    cur.setMonth(cur.getMonth() + 1);
-    render();
-  };
-  document.querySelectorAll("[data-k]").forEach(
-    (el) =>
-      (el.onchange = () => {
-        const k = el.dataset.k,
-          x = (S.days[k] = S.days[k] || {});
-        if (el.dataset.f === "h") x.h = el.value === "" ? undefined : +el.value;
-        else x.t = el.value || undefined;
-        if (!x.h && !x.t) delete S.days[k];
-        save();
-        render();
-      }),
-  );
-}
 function vFerie() {
   const f = ferie(),
     l = f.l;
@@ -281,7 +237,7 @@ function vSet() {
 <label>Santo patrono</label><input type="date" id="pa" style="width:100%" value="${s.patrono ? new Date().getFullYear() + "-" + s.patrono : ""}">
 <button type="button" class="tpk" id="tc"><span>Colore tema</span><i id="tsw" style="background:${s.tema || "#0f766e"}"></i></button>
 <div class="hd"><span>Data di assunzione</span><b>${s.hire ? s.hire.split("-").reverse().join("/") : "verrà letta dalla prima busta paga caricata"}</b></div>
-<div class="row" style="margin-top:14px"><button class="b s" id="tr">Ripristina colore</button><button class="b" id="sv">Salva</button></div><p id="ms" style="color:var(--ac);font-size:17px"></p></div><p style="text-align:center;color:var(--mu);font-size:15px;margin:8px 0 0">Cedolix V1.7.3</p>`;
+<div class="row" style="margin-top:14px"><button class="b s" id="tr">Ripristina colore</button><button class="b" id="sv">Salva</button></div><p id="ms" style="color:var(--ac);font-size:17px"></p></div><p style="text-align:center;color:var(--mu);font-size:15px;margin:8px 0 0">Cedolix V${V}</p>`;
 }
 function colorModal(init, onChange) {
   const cl = (v) => Math.max(0, Math.min(1, v)),
@@ -422,13 +378,8 @@ function bSet() {
   };
 }
 const IC = {
-  u: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>',
   e: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
-  m: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>',
-  f: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
-  p: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>',
   d: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
-  s: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h8M16 6h4M4 12h2M10 12h10M4 18h10M18 18h2"/><circle cx="14" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="18" r="2"/></svg>',
 };
 const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1),
   tl = (T) =>
@@ -723,6 +674,8 @@ function detPay(id) {
     },
   );
 }
+const opn = new Set(),
+  op = (k) => (opn.has(k) ? " open" : "");
 function payList(P) {
   if (!P.length) return "";
   const g = {};
@@ -736,12 +689,12 @@ function payList(P) {
       const L = g[y],
         tot = L.reduce((z, p) => z + (p.netto || 0), 0);
       return (
-        `<div class='card'><div class='row' style='margin-bottom:6px'><b>${y}</b><small style='color:var(--mu)'>${L.length} ${L.length === 1 ? "busta" : "buste"}${tot ? " · netto " + fmt(tot) + " €" : ""}</small></div>` +
+        `<details class='card cl' data-c='y${y}'${op("y" + y)}><summary><span><b>${/^\d{4}$/.test(y) ? "Buste paga " + y : y}</b><small style='color:var(--mu);display:block'>${L.length} ${L.length === 1 ? "busta" : "buste"}${tot ? " · netto " + fmt(tot) + " €" : ""}</small></span></summary>` +
         L.map(
           (p) =>
             `<div class='r'><div class='d'><b>${p.per ? cap(MESI[+p.per.slice(5, 7) - 1] || "?") : "Periodo ?"}</b><small>Netto ${p.netto ? fmt(p.netto) + " €" : "—"} · Lordo ${p.lordo ? fmt(p.lordo) + " €" : "—"} · Ore ${p.ore ? fmtH(p.ore) : "—"}</small></div><div class='ba'><button class='b s ey' data-det='${p.id}' aria-label='Dettaglio busta' title='Dettaglio'>${IC.d}</button><button class='b s ey' data-view='${p.id}' aria-label='Apri busta'${p.pdf ? "" : " style='opacity:.5'"}>${IC.e}</button><button class='b s' data-del='${p.id}' aria-label='Elimina'>✕</button></div></div>`,
         ).join("") +
-        "</div>"
+        "</details>"
       );
     })
     .join("");
@@ -896,139 +849,8 @@ function bCal() {
   $("#ps").onchange = (e) => sp("s", e.target.value);
   $("#pe").onchange = (e) => sp("e", e.target.value);
 }
-let last = null;
-function vPay() {
-  const a = anz(S.set.hire),
-    P = S.pay,
-    n = P.filter((p) => p.netto);
-  const tot = n.reduce((s, p) => s + p.netto, 0);
-  return `<h2>Busta paga</h2><div class="card"><input type="file" id="pf" accept="application/pdf"><p style="color:var(--mu);font-size:13px">Il PDF resta sul tuo dispositivo. I campi vengono riconosciuti in automatico: controllali e correggili prima di salvare.</p><div id="res"></div></div>
-<div class="card"><div class="grid"><div class="k"><b>${a ? a.y + " a " + a.m + " m " + a.d + " g" : "—"}</b><span>Anzianità${a ? " (" + a.tot + " giorni)" : " (carica una busta)"}</span></div><div class="k"><b>${P.length}</b><span>Buste salvate</span></div>
-<div class="k"><b>${n.length ? fmt(tot / n.length) + " €" : "—"}</b><span>Netto medio</span></div><div class="k"><b>${n.length ? fmt(tot) + " €" : "—"}</b><span>Netto totale salvato</span></div></div></div>
-${
-  P.length
-    ? '<div class="card">' +
-      P.slice()
-        .sort((a, b) => (b.per || "").localeCompare(a.per || ""))
-        .map(
-          (p) =>
-            `<div class="r"><div class="d"><b>${p.per || "Periodo ?"}</b><small>Netto ${p.netto ? fmt(p.netto) + " €" : "—"} · Lordo ${p.lordo ? fmt(p.lordo) + " €" : "—"} · Ore ${p.ore ? fmtH(p.ore) : "—"}</small></div><button class="b s" data-del="${p.id}">✕</button></div>`,
-        )
-        .join("") +
-      "</div>"
-    : ""
-}`;
-}
 const num = (s) =>
   s == null ? null : parseFloat(String(s).replace(/\./g, "").replace(",", "."));
-function parse(t) {
-  const g = (r) => {
-    const m = t.match(r);
-    return m ? m[1] : "";
-  };
-  const mm = t.match(new RegExp("(" + MESI.join("|") + ")\\s+(\\d{4})", "i"));
-  let ha = g(/assunzione[^\d]{0,15}(\d{2}[\/.\-]\d{2}[\/.\-]\d{2,4})/i);
-  if (ha) {
-    const p = ha.split(/[\/.\-]/);
-    if (p[2].length === 2) p[2] = "20" + p[2];
-    ha = p[2] + "-" + p[1] + "-" + p[0];
-  }
-  return {
-    per: mm
-      ? String(mm[2]) +
-        "-" +
-        String(MESI.indexOf(mm[1].toLowerCase()) + 1).padStart(2, "0")
-      : "",
-    hire: ha,
-    netto: num(g(/netto[^\d\n]{0,30}?([\d.]+,\d{2})/i)),
-    lordo: num(
-      g(
-        /(?:totale\s+competenze|retribuzione\s+lorda|totale\s+lordo)[^\d\n]{0,25}([\d.]+,\d{2})/i,
-      ),
-    ),
-    ore: g(/ore\s+(?:ordinarie|lavorate)[^\d\n]{0,20}([\d.,]+)/i),
-    ferie: g(/ferie[^\d\n]{0,40}(?:residu\w*|saldo)[^\d\n]{0,20}(-?[\d.,]+)/i),
-    liv: g(/livello[\s:]*([\w°]+)/i),
-    tfr: num(g(/t\.?f\.?r\.?[^\d\n]{0,30}([\d.]+,\d{2})/i)),
-  };
-}
-async function readPdf(f) {
-  const pdf = await pdfjsLib.getDocument({ data: await f.arrayBuffer() })
-    .promise;
-  let out = "";
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const c = await (await pdf.getPage(i)).getTextContent();
-    let y = null,
-      l = "";
-    for (const it of c.items) {
-      const yy = Math.round(it.transform[5]);
-      if (y !== null && Math.abs(yy - y) > 3) {
-        out += l + "\n";
-        l = "";
-      }
-      y = yy;
-      l += it.str + " ";
-    }
-    out += l + "\n";
-  }
-  return out;
-}
-function bPay() {
-  document.querySelectorAll("[data-del]").forEach(
-    (b) =>
-      (b.onclick = () => {
-        S.pay = S.pay.filter((p) => p.id != b.dataset.del);
-        save();
-        render();
-      }),
-  );
-  $("#pf").onchange = async (e) => {
-    const f = e.target.files[0];
-    if (!f) return;
-    $("#res").textContent = "Lettura in corso…";
-    try {
-      const t = await readPdf(f);
-      if (t.trim().length < 30) {
-        $("#res").innerHTML =
-          '<p class="neg">Nessun testo trovato: il PDF sembra una scansione (immagine). Serve un PDF digitale.</p>';
-        return;
-      }
-      last = parse(t);
-      const L = last,
-        F = (k, l, v) =>
-          `<label>${l}</label><input data-p="${k}" value="${v ?? ""}">`;
-      $("#res").innerHTML =
-        F("per", "Periodo (AAAA-MM)", L.per) +
-        F("netto", "Netto (€)", L.netto) +
-        F("lordo", "Lordo (€)", L.lordo) +
-        F("ore", "Ore ordinarie", L.ore) +
-        F("ferie", "Ferie residue", L.ferie) +
-        F("liv", "Livello", L.liv) +
-        F("tfr", "TFR (€)", L.tfr) +
-        F("hire", "Data assunzione (AAAA-MM-GG)", L.hire) +
-        `<div class="row" style="margin-top:12px"><button class="b" id="sp">Salva busta</button></div><details><summary>Testo estratto</summary><pre>${t.replace(/</g, "&lt;")}</pre></details>`;
-      $("#sp").onclick = () => {
-        const o = { id: Date.now() };
-        document.querySelectorAll("[data-p]").forEach((i) => {
-          const k = i.dataset.p,
-            v = i.value.trim();
-          o[k] = ["netto", "lordo", "tfr"].includes(k)
-            ? v
-              ? num(v.includes(",") ? v : v.replace(".", ","))
-              : null
-            : v;
-        });
-        if (o.hire && !S.set.hire) S.set.hire = o.hire;
-        S.pay = S.pay.filter((p) => !(p.per && p.per === o.per));
-        S.pay.push(o);
-        save();
-        render();
-      };
-    } catch (err) {
-      $("#res").innerHTML = '<p class="neg">Errore nella lettura del PDF.</p>';
-    }
-  };
-}
 const FD = [
     ["per", "Periodo (AAAA-MM)"],
     ["azienda", "Azienda"],
@@ -1277,14 +1099,14 @@ function vPay2() {
   return `${
     l
       ? `<div class="hero"><small>Ultima busta · ${mese}</small><div class="big">${eur(l.netto)}</div><small>Netto del mese</small></div>
-<div class="card"><h3 class="fh">Dettaglio ultima busta</h3>
+<details class="card cl" data-c="det"${op("det")}><summary><h3 class="fh">Dettaglio ultima busta</h3></summary>
 ${row("Ore ordinarie", fmtH(l.ore))}
 ${row("Ore straordinarie", l.straord ? fmtH(l.straord) : "—")}
 ${row("Paga oraria base", hr ? fmt(hr) + " €/h" : "—", hn)}
-${row("TFR accantonato al 31/12", eur(l.tfrFondo))}</div>
-<div class="card"><h3 class="fh">Ferie e permessi</h3>
+${row("TFR accantonato al 31/12", eur(l.tfrFondo))}</details>
+<details class="card cl" data-c="fp"${op("fp")}><summary><h3 class="fh">Ferie e permessi</h3></summary>
 ${row("Ferie residue", ore(l.ferieSaldo), l.ferieSaldo != null ? "≈ " + fmt(l.ferieSaldo / av) + " giorni" : "")}
-${row("Permessi ed ex-festività", ore(pe))}</div>`
+${row("Permessi ed ex-festività", ore(pe))}</details>`
       : ""
   }
 <div class="card"><h3 class="fh">Riepilogo</h3>
@@ -1455,6 +1277,13 @@ function bPay2() {
   document
     .querySelectorAll("[data-view]")
     .forEach((b) => (b.onclick = () => viewPdf(b.dataset.view)));
+  document
+    .querySelectorAll("details.cl")
+    .forEach(
+      (d) =>
+        (d.ontoggle = () =>
+          d.open ? opn.add(d.dataset.c) : opn.delete(d.dataset.c)),
+    );
   $("#pu").onclick = () => {
     const i = document.createElement("input");
     i.type = "file";
