@@ -254,23 +254,17 @@ ${row("Saldo", ore(f.pe), "tt", dal)}</div>`;
 function vSet() {
   const s = S.set;
   return `<h2>Impostazioni</h2><div class="card"><label>Ore settimanali da contratto</label><input type="number" step="0.25" id="wh" value="${s.wh}">
-<label>Santo patrono (MM-GG, es. 06-24)</label><input id="pa" value="${s.patrono}" placeholder="opzionale">
+<label>Santo patrono</label><input type="date" id="pa" style="width:100%" value="${s.patrono ? new Date().getFullYear() + "-" + s.patrono : ""}">
 <p style="color:var(--mu);font-size:13px">Data di assunzione: ${s.hire ? s.hire.split("-").reverse().join("/") : "verrà letta dalla prima busta paga caricata"}.</p>
-<div class="row" style="margin-top:14px"><button class="b" id="sv">Salva</button><button class="b s" id="ex">Esporta backup</button></div><p id="ms" style="color:var(--ac)"></p></div>`;
+<div class="row" style="margin-top:14px"><button class="b" id="sv">Salva</button></div><p id="ms" style="color:var(--ac)"></p></div>`;
 }
 function bSet() {
   $("#sv").onclick = () => {
     const s = S.set;
     s.wh = +$("#wh").value || 0;
-    s.patrono = $("#pa").value.trim();
+    s.patrono = $("#pa").value ? $("#pa").value.slice(5) : "";
     save();
     $("#ms").textContent = "Salvato ✓";
-  };
-  $("#ex").onclick = () => {
-    const a = document.createElement("a");
-    a.href = "data:application/json," + encodeURIComponent(JSON.stringify(S));
-    a.download = "ore-lavoro-backup.json";
-    a.click();
   };
 }
 const IC = {
@@ -284,6 +278,16 @@ const IC = {
 const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1),
   tl = (T) =>
     T.map((t) => t.a + "–" + t.b + (t.p ? " (pausa " + t.p + "m)" : "")).join(" · ");
+function turniTab(T) {
+  const tm = (v) => (v ? +v.slice(0, 2) * 60 + +v.slice(3, 5) : 0),
+    mi = (t) => {
+      let m = tm(t.b) - tm(t.a);
+      if (m < 0) m += 1440;
+      return Math.max(0, m - (+t.p || 0));
+    },
+    tot = T.reduce((z, t) => z + mi(t), 0);
+  return `<table class="tt"><thead><tr><th>Turno</th><th>Entrata</th><th>Uscita</th><th>Pausa</th><th>Durata</th></tr></thead><tbody>${T.map((t, i) => `<tr><td>${i + 1}</td><td>${t.a}</td><td>${t.b}</td><td>${t.p ? t.p + " min" : "—"}</td><td><b>${fmtH(mi(t) / 60)}</b></td></tr>`).join("")}</tbody><tfoot><tr><td colspan="4">Totale</td><td><b>${fmtH(tot / 60)}</b></td></tr></tfoot></table>`;
+}
 function modal(html, mount) {
   const o = document.createElement("div");
   o.className = "ov";
@@ -554,8 +558,9 @@ function vHome() {
           : "Nessuna ora registrata";
   const nd = nh ? new Date(nh[0]) : null;
   return `<div class="hero"><small>${GG[n.getDay()]} ${n.getDate()} ${MESI[m]} ${y}</small><small style="display:block;margin-top:12px">${hlab}</small><div class="big">${hbig}</div><div class="bar"><i style="width:${pct}%"></i></div><small>${hsub}</small></div>
-<div class="card"><div class="row"><b>Oggi</b><span style="color:var(--mu);text-align:right">${stt}</span></div><div class="chips" style="justify-content:center"><button class="b" id="qa">+ Aggiungi turno</button></div>${x.turni && !x.t ? `<small style="color:var(--mu);display:block;margin-top:8px;text-align:center">${tl(x.turni)}</small>` : ""}</div>
-<div class="grid" style="margin-bottom:12px"><div class="k"><b>${f.sett == null ? "—" : fmt1(f.sett) + " sett."}</b><span>Ferie + permessi residui</span></div><div class="k"><b>${a ? a.y + " a " + a.m + " m" : "—"}</b><span>Anzianità</span></div><div class="k"><b>${nd ? nd.getDate() + " " + MESI[nd.getMonth()].slice(0, 3) : "—"}</b><span>Prossimo festivo${nh ? ": " + nh[1] : ""}</span></div><div class="k"><b>${lp && lp.netto ? fmt(lp.netto) + " €" : "—"}</b><span>Ultima busta${lp && lp.per ? " (" + lp.per + ")" : ""}</span></div></div>`;
+<div class="card"><div class="row"><b>Oggi</b><span style="color:var(--mu);text-align:right">${stt}</span></div><div class="chips" style="justify-content:center"><button class="b" id="qa">+ Aggiungi turno</button></div>${x.turni && !x.t ? turniTab(x.turni) : ""}</div>
+<div class="card"><div class="fr"><div>Ore di contratto</div><b>${wh() ? fmt(wh()) + " ore" : "—"}</b></div><div class="fr"><div>Data assunzione</div><b>${S.set.hire ? S.set.hire.split("-").reverse().join("/") : "—"}</b></div></div>
+<div class="grid" style="margin-bottom:12px"><div class="k kc"><b>${f.sett == null ? "—" : fmt1(f.sett) + " sett."}</b><span>Ferie + permessi residui</span></div><div class="k kc"><b>${a ? a.y + " a " + a.m + " m" : "—"}</b><span>Anzianità</span></div><div class="k kc"><b>${nd ? nd.getDate() + " " + MESI[nd.getMonth()].slice(0, 3) : "—"}</b><span>Prossimo festivo${nh ? ": " + nh[1] : ""}</span></div><div class="k kc"><b>${lp && lp.netto ? fmt(lp.netto) + " €" : "—"}</b><span>Ultima busta${lp && lp.per ? " (" + lp.per + ")" : ""}</span></div></div>`;
 }
 function bHome() {
   $("#qa").onclick = () => hoursModal(iso(new Date()));
@@ -606,7 +611,7 @@ function vCal() {
 <div class="card"><div class="cal">${["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"].map((g) => `<div class="wd">${g}</div>`).join("")}${c}</div></div>
 <div class="card"><b>Periodo di calcolo di ${MESI[m]}</b><div class="chips"><input type="date" id="ps" value="${ps}"><span>→</span><input type="date" id="pe" value="${pe}"></div></div>
 <div class="card"><div class="row"><b>${GF[D.getDay()]} ${D.getDate()} ${MESI[D.getMonth()]}</b><small style="color:${H[sel] ? "#ef4444" : "var(--mu)"}">${H[sel] || ""}</small></div>
-<div class="chips"><select id="dt">${op("", "Lavoro")}${op("ferie", "Ferie")}${op("permesso", "Permesso")}${op("malattia", "Malattia")}</select>${t === "" ? `<button class="b" id="da">+ Aggiungi turno</button>` : `<button class="b" id="di">Inserisci</button>`}<button class="b s" id="dc">Cancella</button></div>${x.turni && !x.t ? `<small style="color:var(--mu);display:block;margin-top:8px">${tl(x.turni)}</small>` : ""}</div>
+<div class="chips"><select id="dt">${op("", "Lavoro")}${op("ferie", "Ferie")}${op("permesso", "Permesso")}${op("malattia", "Malattia")}</select>${t === "" ? `<button class="b" id="da">+ Aggiungi turno</button>` : `<button class="b" id="di">Inserisci</button>`}<button class="b s" id="dc">Cancella</button></div>${x.turni && !x.t ? turniTab(x.turni) : ""}</div>
 <div class="card"><div class="grid"><div class="k"><b>${fmtH(st.w + st.fe)}</b><span>Ore effettive (incl. assenze)</span></div><div class="k"><b>${fmtH(st.e)}</b><span>Ore previste</span></div><div class="k"><b class="${st.bal >= 0 ? "pos" : "neg"}">${st.bal > 0 ? "+" : ""}${fmtH(st.bal)}</b><span>Saldo mese</span></div><div class="k"><b>${st.ex} / ${st.hol}</b><span>Ferie / festivi nel mese</span></div></div></div>`;
 }
 function bCal() {

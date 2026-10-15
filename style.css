@@ -403,18 +403,19 @@ nav button.on .ic {
   z-index: 100;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
+  padding: calc(16px + env(safe-area-inset-top, 0px)) 14px calc(16px + env(safe-area-inset-bottom, 0px));
 }
 .sheet {
   background: var(--card);
   color: var(--tx);
   width: 100%;
   max-width: 720px;
-  max-height: 92vh;
+  max-height: 100%;
   overflow: auto;
-  border-radius: 22px 22px 0 0;
-  padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+  border-radius: 22px;
+  padding: 18px 16px;
 }
 .sheet h3 {
   margin: 0 0 12px;
@@ -487,7 +488,7 @@ button.b.dng {
   stroke-linejoin: round;
 }
 .sheet.big {
-  height: 92vh;
+  height: 100%;
 }
 .pv canvas {
   display: block;
@@ -526,4 +527,62 @@ button.b.dng {
 .fr.tt b {
   color: var(--ac);
   font-size: 18px;
+}
+
+.tt {
+  width: 100%;
+  margin-top: 14px;
+  border-collapse: collapse;
+  text-align: center;
+  font-size: 16px;
+}
+.tt th {
+  padding: 4px 4px 8px;
+  color: var(--mu);
+  font-size: 12px;
+  font-weight: 500;
+  border-bottom: 1px solid var(--bd);
+}
+.tt td {
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--bd);
+}
+.tt tfoot td {
+  border-bottom: 0;
+  text-align: right;
+  color: var(--mu);
+}
+.tt tfoot td:last-child {
+  text-align: center;
+  color: var(--ac);
+  font-size: 18px;
+}
+.tt tfoot b {
+  color: var(--ac);
+}
+
+input[type="file"] {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  font-size: 14px;
+}
+.card {
+  min-width: 0;
+  overflow: hidden;
+}
+.fg > div {
+  min-width: 0;
+}
+pre {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.k.kc {
+  background: var(--card);
+  border: 1px solid var(--bd);
+  border-radius: 12px;
+  padding: 12px;
 }
