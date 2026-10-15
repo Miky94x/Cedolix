@@ -706,3 +706,10 @@ html {
 .sheet.full ol {
   font-size: 18px !important;
 }
+
+.card.ver {
+  text-align: center;
+  color: var(--mu);
+  font-size: 15px;
+  margin: 12px 0 0;
+}
