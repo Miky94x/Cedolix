@@ -796,7 +796,7 @@ function vCal() {
 <div class="card"><div class="cal">${["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"].map((g) => `<div class="wd">${g}</div>`).join("")}${c}</div></div>
 <div class="card"><b>Periodo di calcolo di ${MESI[m]}</b> <b class="neg" style="margin-left:6px">Importante!</b><div class="chips"><input type="date" id="ps" value="${ps}"><span>→</span><input type="date" id="pe" value="${pe}"></div></div>
 <div class="card"><div class="row"><b>${GF[D.getDay()]} ${D.getDate()} ${MESI[D.getMonth()]}</b><small style="color:${H[sel] ? "#ef4444" : "var(--mu)"}">${H[sel] || ""}</small></div>
-<div class="chips"><select id="dt">${op("", "Lavoro")}${op("ferie", "Ferie")}${op("permesso", "Permesso")}${op("malattia", "Malattia")}</select>${t === "" ? `<button class="b" id="da">+ Aggiungi turno</button>` : `<button class="b" id="di">Inserisci</button>`}<button class="b s" id="dc">Cancella</button></div>${x.turni && !x.t ? turniTab(x.turni) : ""}</div>
+<div class="dact"><select id="dt">${op("", "Lavoro")}${op("ferie", "Ferie")}${op("permesso", "Permesso")}${op("malattia", "Malattia")}</select>${t === "" ? `<button class="b" id="da">+ Aggiungi turno</button>` : `<button class="b" id="di">Inserisci</button>`}<button class="b s" id="dc">Cancella</button></div>${x.turni && !x.t ? turniTab(x.turni) : ""}</div>
 <div class="card"><div class="grid"><div class="k"><b>${fmtH(st.w + st.fe)}</b><span>Ore effettive (incl. assenze)</span></div><div class="k"><b>${fmtH(st.e)}</b><span>Ore previste</span></div><div class="k"><b class="${st.bal >= 0 ? "pos" : "neg"}">${st.bal > 0 ? "+" : ""}${fmtH(st.bal)}</b><span>Saldo mese</span></div><div class="k"><b>${st.ex} / ${st.hol}</b><span>Ferie / festivi nel mese</span></div></div></div>${vBustaMese(y, m)}`;
 }
 function meseDati(y, m) {
@@ -921,11 +921,26 @@ function bCal() {
     };
   if ($("#da")) $("#da").onclick = () => hoursModal(sel);
   $("#dc").onclick = () => {
-    pt = null;
-    delete S.days[sel];
-    save();
-    keep = 1;
-    render();
+    const D = pd(sel),
+      x = S.days[sel];
+    if (!x) {
+      pt = null;
+      keep = 1;
+      render();
+      return;
+    }
+    confirmBox(
+      "Cancellare il giorno?",
+      `Stai per eliminare i dati di <b>${GF[D.getDay()]} ${D.getDate()} ${MESI[D.getMonth()]}</b>${x.turni && !x.t ? " (turni inclusi)" : ""}. L'operazione non si può annullare.`,
+      "Cancella",
+      () => {
+        pt = null;
+        delete S.days[sel];
+        save();
+        keep = 1;
+        render();
+      },
+    );
   };
   const K = iso(cur).slice(0, 7),
     sp = (f, v) => {
@@ -1291,8 +1306,8 @@ function uploadModal(f) {
           u2.innerHTML =
             `<div class="k kc" style="margin-bottom:12px"><b>${lab}${R.netto != null ? " · " + fmt(R.netto) + " €" : ""}</b><span>Letti ${found} campi su ${FD.length}. Controlla i dati e correggi quelli vuoti o sbagliati prima di salvare.</span></div>` +
             G.map(
-              ([t, K, o]) =>
-                `<details${o ? " open" : ""}><summary>${t}</summary><div class="fg">${K.map(fld).join("")}</div></details>`,
+              ([t, K]) =>
+                `<details><summary>${t}</summary><div class="fg">${K.map(fld).join("")}</div></details>`,
             ).join("") +
             `<details><summary>Testo estratto</summary><pre>${esc(txt)}</pre></details>
 <p id="uer" class="neg" style="margin:10px 0 0"></p>
