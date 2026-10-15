@@ -238,7 +238,7 @@ function vFerie() {
     pAP = sum(l.exAP, l.permAP),
     pMat = sum(l.exMat, l.permMat),
     pGod = sum(l.exGodAnno, l.permGodAnno);
-  return `<div class="hero"><small>Ancora da usare</small><div class="big">${f.sett == null ? "—" : fmt1(f.sett) + " settimane"}</div><small>${fmt(f.gg)} giorni · ${fmtH(f.ore)} in totale (ferie + permessi + ex-festività)</small></div>
+  return `<div class="hero"><small>Ancora da usare</small><div class="big">${f.sett == null ? "—" : fmt1(f.sett) + " settimane"}</div><small>${fmt(f.gg)} giorni · ${fmtH(f.ore)} in totale<br>(ferie + permessi + ex-festività)</small></div>
 <div class="card"><h3 class="fh">Ferie</h3>
 ${row("Residuo AP", ore(l.ferieAP))}
 ${row("Maturato", ore(l.ferieMat))}
@@ -558,13 +558,11 @@ function vHome() {
           : "Nessuna ora registrata";
   const nd = nh ? new Date(nh[0]) : null;
   return `<div class="hero"><small>${GG[n.getDay()]} ${n.getDate()} ${MESI[m]} ${y}</small><small style="display:block;margin-top:12px">${hlab}</small><div class="big">${hbig}</div><div class="bar"><i style="width:${pct}%"></i></div><small>${hsub}</small></div>
-<div class="card"><div class="row"><b>Oggi</b><span style="color:var(--mu);text-align:right">${stt}</span></div><div class="chips" style="justify-content:center"><button class="b" id="qa">+ Aggiungi turno</button></div>${x.turni && !x.t ? turniTab(x.turni) : ""}</div>
+<div class="card"><div class="row"><b>Oggi</b><span style="color:var(--mu);text-align:right">${stt}</span></div>${x.turni && !x.t ? turniTab(x.turni) : ""}</div>
 <div class="card"><div class="fr"><div>Ore di contratto</div><b>${wh() ? fmt(wh()) + " ore" : "—"}</b></div><div class="fr"><div>Data assunzione</div><b>${S.set.hire ? S.set.hire.split("-").reverse().join("/") : "—"}</b></div></div>
 <div class="grid" style="margin-bottom:12px"><div class="k kc"><b>${f.sett == null ? "—" : fmt1(f.sett) + " sett."}</b><span>Ferie + permessi residui</span></div><div class="k kc"><b>${a ? a.y + " a " + a.m + " m" : "—"}</b><span>Anzianità</span></div><div class="k kc"><b>${nd ? nd.getDate() + " " + MESI[nd.getMonth()].slice(0, 3) : "—"}</b><span>Prossimo festivo${nh ? ": " + nh[1] : ""}</span></div><div class="k kc"><b>${lp && lp.netto ? fmt(lp.netto) + " €" : "—"}</b><span>Ultima busta${lp && lp.per ? " (" + lp.per + ")" : ""}</span></div></div>`;
 }
-function bHome() {
-  $("#qa").onclick = () => hoursModal(iso(new Date()));
-}
+function bHome() {}
 const pd = (s) => new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8)),
   GF = [
     "Domenica",
@@ -607,9 +605,9 @@ function vCal() {
     t = pt && pt.k === sel ? pt.t : x.t || "",
     op = (v, l) =>
       `<option value="${v}"${t === v ? " selected" : ""}>${l}</option>`;
-  return `<div class="row"><button class="b s" id="pv">‹</button><h2>${MESI[m]} ${y}</h2><button class="b s" id="nx">›</button></div>
+  return `<div class="row" style="margin-bottom:10px"><button class="b s" id="pv">‹</button><h2>${MESI[m]} ${y}</h2><button class="b s" id="nx">›</button></div>
 <div class="card"><div class="cal">${["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"].map((g) => `<div class="wd">${g}</div>`).join("")}${c}</div></div>
-<div class="card"><b>Periodo di calcolo di ${MESI[m]}</b><div class="chips"><input type="date" id="ps" value="${ps}"><span>→</span><input type="date" id="pe" value="${pe}"></div></div>
+<div class="card"><b>Periodo di calcolo di ${MESI[m]}</b> <b class="neg" style="margin-left:6px">Importante!</b><div class="chips"><input type="date" id="ps" value="${ps}"><span>→</span><input type="date" id="pe" value="${pe}"></div></div>
 <div class="card"><div class="row"><b>${GF[D.getDay()]} ${D.getDate()} ${MESI[D.getMonth()]}</b><small style="color:${H[sel] ? "#ef4444" : "var(--mu)"}">${H[sel] || ""}</small></div>
 <div class="chips"><select id="dt">${op("", "Lavoro")}${op("ferie", "Ferie")}${op("permesso", "Permesso")}${op("malattia", "Malattia")}</select>${t === "" ? `<button class="b" id="da">+ Aggiungi turno</button>` : `<button class="b" id="di">Inserisci</button>`}<button class="b s" id="dc">Cancella</button></div>${x.turni && !x.t ? turniTab(x.turni) : ""}</div>
 <div class="card"><div class="grid"><div class="k"><b>${fmtH(st.w + st.fe)}</b><span>Ore effettive (incl. assenze)</span></div><div class="k"><b>${fmtH(st.e)}</b><span>Ore previste</span></div><div class="k"><b class="${st.bal >= 0 ? "pos" : "neg"}">${st.bal > 0 ? "+" : ""}${fmtH(st.bal)}</b><span>Saldo mese</span></div><div class="k"><b>${st.ex} / ${st.hol}</b><span>Ferie / festivi nel mese</span></div></div></div>`;
