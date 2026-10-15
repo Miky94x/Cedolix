@@ -63,7 +63,12 @@ const fmtH = (n) => {
   const t = Math.round(Math.abs(n) * 60),
     h = Math.floor(t / 60),
     m = t % 60;
-  return (n < 0 && t ? "−" : "") + (h || !m ? h + "h" : "") + (h && m ? " " : "") + (m ? m + "m" : "");
+  return (
+    (n < 0 && t ? "−" : "") +
+    (h || !m ? h + "h" : "") +
+    (h && m ? " " : "") +
+    (m ? m + "m" : "")
+  );
 };
 function easter(y) {
   const a = y % 19,
@@ -155,7 +160,15 @@ function ferie() {
     fer = l.ferieSaldo || 0,
     pe = (l.permSaldo || 0) + (l.exSaldo || 0),
     ore = fer + pe - usati * d;
-  return { l, ore, gg: ore / d, sett: wh() ? ore / wh() : null, usati, fer, pe };
+  return {
+    l,
+    ore,
+    gg: ore / d,
+    sett: wh() ? ore / wh() : null,
+    usati,
+    fer,
+    pe,
+  };
 }
 function anz(s) {
   if (!s) return null;
@@ -276,17 +289,39 @@ function colorModal(init, onChange) {
       const c = v * s,
         x = c * (1 - Math.abs(((h / 60) % 2) - 1)),
         m = v - c,
-        [r, g, b] = [[c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x]][Math.min(5, Math.floor(h / 60))];
+        [r, g, b] = [
+          [c, x, 0],
+          [x, c, 0],
+          [0, c, x],
+          [0, x, c],
+          [x, 0, c],
+          [c, 0, x],
+        ][Math.min(5, Math.floor(h / 60))];
       return [r + m, g + m, b + m];
     },
     toHex = (h, s, v) =>
-      "#" + toRgb(h, s, v).map((x) => Math.round(x * 255).toString(16).padStart(2, "0")).join(""),
+      "#" +
+      toRgb(h, s, v)
+        .map((x) =>
+          Math.round(x * 255)
+            .toString(16)
+            .padStart(2, "0"),
+        )
+        .join(""),
     toHsv = (hex) => {
-      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255),
+      const [r, g, b] = [1, 3, 5].map(
+          (i) => parseInt(hex.slice(i, i + 2), 16) / 255,
+        ),
         mx = Math.max(r, g, b),
         d = mx - Math.min(r, g, b);
       let h = 0;
-      if (d) h = mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+      if (d)
+        h =
+          mx === r
+            ? ((g - b) / d + 6) % 6
+            : mx === g
+              ? (b - r) / d + 2
+              : (r - g) / d + 4;
       return [h * 60, mx ? d / mx : 0, mx];
     };
   let [H, Sa, V] = toHsv(init);
@@ -296,7 +331,8 @@ function colorModal(init, onChange) {
       const q = (i) => m.querySelector(i),
         upd = (skipInput) => {
           const hex = toHex(H, Sa, V);
-          q("#cs").style.background = `linear-gradient(to top,#000,transparent),linear-gradient(to right,#fff,${toHex(H, 1, 1)})`;
+          q("#cs").style.background =
+            `linear-gradient(to top,#000,transparent),linear-gradient(to right,#fff,${toHex(H, 1, 1)})`;
           q("#ck").style.left = Sa * 100 + "%";
           q("#ck").style.top = (1 - V) * 100 + "%";
           q("#chk").style.left = (H / 360) * 100 + "%";
@@ -307,7 +343,10 @@ function colorModal(init, onChange) {
         drag = (el, fn) => {
           const mv = (e) => {
             const r = el.getBoundingClientRect();
-            fn(cl((e.clientX - r.left) / r.width), cl((e.clientY - r.top) / r.height));
+            fn(
+              cl((e.clientX - r.left) / r.width),
+              cl((e.clientY - r.top) / r.height),
+            );
             upd();
           };
           el.onpointerdown = (e) => {
@@ -393,7 +432,9 @@ const IC = {
 };
 const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1),
   tl = (T) =>
-    T.map((t) => t.a + "–" + t.b + (t.p ? " (pausa " + t.p + "m)" : "")).join(" · ");
+    T.map((t) => t.a + "–" + t.b + (t.p ? " (pausa " + t.p + "m)" : "")).join(
+      " · ",
+    );
 function turniTab(T) {
   const tm = (v) => (v ? +v.slice(0, 2) * 60 + +v.slice(3, 5) : 0),
     mi = (t) => {
@@ -555,7 +596,9 @@ async function viewPdf(id) {
         );
       const box = m.querySelector("#pv");
       try {
-        const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf.slice(0)) }).promise,
+        const pdf = await pdfjsLib.getDocument({
+            data: new Uint8Array(buf.slice(0)),
+          }).promise,
           w = box.clientWidth || 320,
           dpr = Math.min(2, window.devicePixelRatio || 1);
         box.textContent = "";
@@ -567,7 +610,8 @@ async function viewPdf(id) {
           c.width = v.width;
           c.height = v.height;
           box.appendChild(c);
-          await pg.render({ canvasContext: c.getContext("2d"), viewport: v }).promise;
+          await pg.render({ canvasContext: c.getContext("2d"), viewport: v })
+            .promise;
         }
       } catch (e) {
         box.textContent = "Impossibile mostrare il PDF.";
@@ -576,12 +620,72 @@ async function viewPdf(id) {
   );
 }
 const DET = [
-  ["Busta", [["azienda", "Azienda", "t"], ["liv", "Livello", "t"], ["qual", "Qualifica", "t"], ["pt", "Part time", "%"], ["hire", "Data assunzione", "d"]]],
-  ["Retribuzione", [["lordo", "Totale competenze", "e"], ["tratt", "Totale trattenute", "e"], ["netto", "Netto del mese", "e"], ["oraria", "Paga oraria base", "eh"], ["ore", "Ore ordinarie lavorate", "o"], ["straord", "Ore suppl./straord.", "o"], ["straordImp", "Importo straord./suppl.", "e"], ["ggLav", "Giorni lavorati", "n"], ["festOre", "Ore festivo lavorate", "o"]]],
-  ["Ferie", [["ferieGod", "Godute nel mese", "o"], ["ferieAP", "Residuo AP", "o"], ["ferieMat", "Maturate", "o"], ["ferieGodAnno", "Godute da inizio anno", "o"], ["ferieSaldo", "Saldo", "o"]]],
-  ["Permessi ed ex-festività", [["exGod", "Godute nel mese", "o"], ["exAP", "Ex-festività residuo AP", "o"], ["exMat", "Ex-festività maturate", "o"], ["exGodAnno", "Ex-festività godute da inizio anno", "o"], ["exSaldo", "Ex-festività saldo", "o"], ["permAP", "Permessi residuo AP", "o"], ["permMat", "Permessi maturati", "o"], ["permGodAnno", "Permessi goduti da inizio anno", "o"], ["permSaldo", "Permessi saldo", "o"]]],
-  ["TFR", [["tfrFondo", "Fondo al 31/12", "e"], ["tfrQuota", "Quota del mese", "e"], ["tfrAnno", "Quota anno", "e"]]],
-  ["Imposte", [["impIrpef", "Imponibile IRPEF mese", "e"], ["irpef", "Ritenute IRPEF mese", "e"], ["progImpInps", "Progressivo imponibile INPS", "e"], ["progImpIrpef", "Progressivo imponibile IRPEF", "e"], ["progIrpef", "IRPEF pagata da inizio anno", "e"]]],
+  [
+    "Busta",
+    [
+      ["azienda", "Azienda", "t"],
+      ["liv", "Livello", "t"],
+      ["qual", "Qualifica", "t"],
+      ["pt", "Part time", "%"],
+      ["hire", "Data assunzione", "d"],
+    ],
+  ],
+  [
+    "Retribuzione",
+    [
+      ["lordo", "Totale competenze", "e"],
+      ["tratt", "Totale trattenute", "e"],
+      ["netto", "Netto del mese", "e"],
+      ["oraria", "Paga oraria base", "eh"],
+      ["ore", "Ore ordinarie lavorate", "o"],
+      ["straord", "Ore suppl./straord.", "o"],
+      ["straordImp", "Importo straord./suppl.", "e"],
+      ["ggLav", "Giorni lavorati", "n"],
+      ["festOre", "Ore festivo lavorate", "o"],
+    ],
+  ],
+  [
+    "Ferie",
+    [
+      ["ferieGod", "Godute nel mese", "o"],
+      ["ferieAP", "Residuo AP", "o"],
+      ["ferieMat", "Maturate", "o"],
+      ["ferieGodAnno", "Godute da inizio anno", "o"],
+      ["ferieSaldo", "Saldo", "o"],
+    ],
+  ],
+  [
+    "Permessi ed ex-festività",
+    [
+      ["exGod", "Godute nel mese", "o"],
+      ["exAP", "Ex-festività residuo AP", "o"],
+      ["exMat", "Ex-festività maturate", "o"],
+      ["exGodAnno", "Ex-festività godute da inizio anno", "o"],
+      ["exSaldo", "Ex-festività saldo", "o"],
+      ["permAP", "Permessi residuo AP", "o"],
+      ["permMat", "Permessi maturati", "o"],
+      ["permGodAnno", "Permessi goduti da inizio anno", "o"],
+      ["permSaldo", "Permessi saldo", "o"],
+    ],
+  ],
+  [
+    "TFR",
+    [
+      ["tfrFondo", "Fondo al 31/12", "e"],
+      ["tfrQuota", "Quota del mese", "e"],
+      ["tfrAnno", "Quota anno", "e"],
+    ],
+  ],
+  [
+    "Imposte",
+    [
+      ["impIrpef", "Imponibile IRPEF mese", "e"],
+      ["irpef", "Ritenute IRPEF mese", "e"],
+      ["progImpInps", "Progressivo imponibile INPS", "e"],
+      ["progImpIrpef", "Progressivo imponibile IRPEF", "e"],
+      ["progIrpef", "IRPEF pagata da inizio anno", "e"],
+    ],
+  ],
 ];
 function detPay(id) {
   const p = S.pay.find((q) => q.id == id);
@@ -590,16 +694,25 @@ function detPay(id) {
       ? cap(MESI[+p.per.slice(5, 7) - 1] || "") + " " + p.per.slice(0, 4)
       : "Busta paga",
     fv = (v, t) =>
-      t === "e" ? fmt(v) + " €"
-      : t === "eh" ? fmt(v) + " €/h"
-      : t === "o" ? fmt(v) + " ore"
-      : t === "%" ? fmt(v) + "%"
-      : t === "d" ? String(v).split("-").reverse().join("/")
-      : t === "n" ? String(v)
-      : esc(v),
+      t === "e"
+        ? fmt(v) + " €"
+        : t === "eh"
+          ? fmt(v) + " €/h"
+          : t === "o"
+            ? fmt(v) + " ore"
+            : t === "%"
+              ? fmt(v) + "%"
+              : t === "d"
+                ? String(v).split("-").reverse().join("/")
+                : t === "n"
+                  ? String(v)
+                  : esc(v),
     html = DET.map(([tit, F]) => {
       const R = F.filter(([k]) => p[k] != null && p[k] !== "")
-        .map(([k, l, t]) => `<div class="fr"><div>${l}</div><b style="white-space:normal;text-align:right">${fv(p[k], t)}</b></div>`)
+        .map(
+          ([k, l, t]) =>
+            `<div class="fr"><div>${l}</div><b style="white-space:normal;text-align:right">${fv(p[k], t)}</b></div>`,
+        )
         .join("");
       return R ? `<div class="card"><h3 class="fh">${tit}</h3>${R}</div>` : "";
     }).join("");
@@ -1067,17 +1180,24 @@ function parse2(pg) {
       put("ore", N(m[6]));
       put("straord", N(m[7]));
     }
-    put("oraria", N(g(/(?:paga|retribuzione)\s+oraria[^\d\n]{0,25}([\d.]+,\d{2,4})/i)));
+    put(
+      "oraria",
+      N(g(/(?:paga|retribuzione)\s+oraria[^\d\n]{0,25}([\d.]+,\d{2,4})/i)),
+    );
     put("exGod", N(g(/Perm\.?\s*Ex-?\s*Fest\.?\s*Goduti\s+([\d.,]+)\s*ORE/i)));
     {
       let si = 0;
       t.split("\n").forEach((L) => {
         if (!/supplementar|straordinar|maggiorazione/i.test(L)) return;
-        const ms = [...L.matchAll(/(?<![\d,.])(?:\d{1,3}(?:\.\d{3})+|\d+),\d{2}(?!\d)/g)];
+        const ms = [
+          ...L.matchAll(/(?<![\d,.])(?:\d{1,3}(?:\.\d{3})+|\d+),\d{2}(?!\d)/g),
+        ];
         if (ms.length) si += N(ms[ms.length - 1][0]);
       });
       if (si) put("straordImp", Math.round(si * 100) / 100);
-      let mo = t.match(/(?:Supplementare|Straordinari\w*)\s+(\d+)\s*%\s+(\d+,\d{3,})/i),
+      let mo = t.match(
+          /(?:Supplementare|Straordinari\w*)\s+(\d+)\s*%\s+(\d+,\d{3,})/i,
+        ),
         rt = mo ? N(mo[2]) / (1 + mo[1] / 100) : null;
       if (rt == null) {
         mo = t.match(/Maggiorazione[^\n]*?(\d+)\s*%\s+(\d+,\d{3,})/i);
@@ -1158,14 +1278,13 @@ function vPay2() {
     l
       ? `<div class="hero"><small>Ultima busta · ${mese}</small><div class="big">${eur(l.netto)}</div><small>Netto del mese</small></div>
 <div class="card"><h3 class="fh">Dettaglio ultima busta</h3>
-${row("Totale competenze", eur(l.lordo))}
-${row("Trattenute", eur(l.tratt))}
-${row("Ore ordinarie", fmtH(l.ore) + (l.straord ? " + " + fmtH(l.straord) + " suppl." : ""))}
-${row("Paga oraria base", hr ? fmt(hr) + " €/h" : "—", hn)}</div>
-<div class="card"><h3 class="fh">Ferie, permessi e TFR</h3>
+${row("Ore ordinarie", fmtH(l.ore))}
+${row("Ore straordinarie", l.straord ? fmtH(l.straord) : "—")}
+${row("Paga oraria base", hr ? fmt(hr) + " €/h" : "—", hn)}
+${row("TFR accantonato al 31/12", eur(l.tfrFondo))}</div>
+<div class="card"><h3 class="fh">Ferie e permessi</h3>
 ${row("Ferie residue", ore(l.ferieSaldo), l.ferieSaldo != null ? "≈ " + fmt(l.ferieSaldo / av) + " giorni" : "")}
-${row("Permessi ed ex-festività", ore(pe))}
-${row("TFR accantonato al 31/12", eur(l.tfrFondo))}</div>`
+${row("Permessi ed ex-festività", ore(pe))}</div>`
       : ""
   }
 <div class="card"><h3 class="fh">Riepilogo</h3>
@@ -1178,11 +1297,41 @@ ${payList(P)}`;
 }
 const GR = [
   ["Periodo e contratto", ["per", "azienda", "hire", "liv", "qual", "pt"], 1],
-  ["Retribuzione", ["lordo", "tratt", "netto", "ore", "straord", "straordImp", "oraria", "ggLav", "festOre"], 1],
+  [
+    "Retribuzione",
+    [
+      "lordo",
+      "tratt",
+      "netto",
+      "ore",
+      "straord",
+      "straordImp",
+      "oraria",
+      "ggLav",
+      "festOre",
+    ],
+    1,
+  ],
   ["Ferie", ["ferieGod", "ferieAP", "ferieMat", "ferieGodAnno", "ferieSaldo"]],
-  ["Permessi ed ex-festività", ["exGod", "exAP", "exMat", "exGodAnno", "exSaldo", "permAP", "permMat", "permGodAnno", "permSaldo"]],
+  [
+    "Permessi ed ex-festività",
+    [
+      "exGod",
+      "exAP",
+      "exMat",
+      "exGodAnno",
+      "exSaldo",
+      "permAP",
+      "permMat",
+      "permGodAnno",
+      "permSaldo",
+    ],
+  ],
   ["TFR", ["tfrFondo", "tfrQuota", "tfrAnno"]],
-  ["Imposte", ["impIrpef", "irpef", "progImpInps", "progImpIrpef", "progIrpef"]],
+  [
+    "Imposte",
+    ["impIrpef", "irpef", "progImpInps", "progImpIrpef", "progIrpef"],
+  ],
 ];
 function uploadModal(f) {
   modal(
@@ -1200,7 +1349,9 @@ function uploadModal(f) {
           const pg = await readPdf2(f),
             txt = pg.map((p) => p.txt).join("\n");
           if (txt.trim().length < 30)
-            return fail("Nessun testo trovato: il PDF sembra una scansione. Serve un PDF digitale.");
+            return fail(
+              "Nessun testo trovato: il PDF sembra una scansione. Serve un PDF digitale.",
+            );
           const R = parse2(pg),
             L = Object.fromEntries(FD),
             ea = (v) => esc(v).replace(/"/g, "&quot;"),
@@ -1209,16 +1360,24 @@ function uploadModal(f) {
             used = GR.flatMap((g) => g[1]),
             G = GR.concat(
               FD.map((x) => x[0]).filter((k) => !used.includes(k)).length
-                ? [["Altro", FD.map((x) => x[0]).filter((k) => !used.includes(k))]]
+                ? [
+                    [
+                      "Altro",
+                      FD.map((x) => x[0]).filter((k) => !used.includes(k)),
+                    ],
+                  ]
                 : [],
             ),
             fld = (k) =>
               `<div><label>${L[k]}</label><input data-p="${k}" class="${(k === "per" || k === "netto") && !has(k) ? "miss" : ""}" value="${has(k) ? (TXT.includes(k) ? ea(R[k]) : String(R[k]).replace(".", ",")) : ""}"></div>`,
             lab = R.per
-              ? cap(MESI[+R.per.slice(5, 7) - 1] || "") + " " + R.per.slice(0, 4)
+              ? cap(MESI[+R.per.slice(5, 7) - 1] || "") +
+                " " +
+                R.per.slice(0, 4)
               : "periodo non trovato";
           u1.remove();
-          u2.innerHTML = `<div class="k kc" style="margin-bottom:12px"><b>${lab}${R.netto != null ? " · " + fmt(R.netto) + " €" : ""}</b><span>Letti ${found} campi su ${FD.length}. Controlla i dati e correggi quelli vuoti o sbagliati prima di salvare.</span></div>` +
+          u2.innerHTML =
+            `<div class="k kc" style="margin-bottom:12px"><b>${lab}${R.netto != null ? " · " + fmt(R.netto) + " €" : ""}</b><span>Letti ${found} campi su ${FD.length}. Controlla i dati e correggi quelli vuoti o sbagliati prima di salvare.</span></div>` +
             G.map(
               ([t, K, o]) =>
                 `<details${o ? " open" : ""}><summary>${t}</summary><div class="fg">${K.map(fld).join("")}</div></details>`,
@@ -1271,7 +1430,12 @@ function bPay2() {
     (b) =>
       (b.onclick = () => {
         const p = S.pay.find((q) => q.id == b.dataset.del),
-          lab = p && p.per ? cap(MESI[+p.per.slice(5, 7) - 1] || "") + " " + p.per.slice(0, 4) : "senza periodo";
+          lab =
+            p && p.per
+              ? cap(MESI[+p.per.slice(5, 7) - 1] || "") +
+                " " +
+                p.per.slice(0, 4)
+              : "senza periodo";
         confirmBox(
           "Eliminare la busta paga?",
           `Stai per eliminare la busta di <b>${lab}</b>. L'operazione non si può annullare.`,
