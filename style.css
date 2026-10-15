@@ -123,21 +123,15 @@ input[type="number"] {
 }
 button.b {
   background: var(--ac);
-  color: #fff;
+  color: #000;
+  font-weight: 600;
   border: 0;
   padding: 9px 14px;
-  text-shadow:
-      -1px -1px 0 #000,
-      1px -1px 0 #000,
-      -1px 1px 0 #000,
-      1px 1px 0 #000,
-      0 0 3px #000;
 }
 button.s {
   background: var(--bg);
   color: var(--tx);
   border: 1px solid var(--bd);
-  text-shadow: none;
 }
 label {
   display: block;
@@ -284,19 +278,17 @@ pre {
 }
 .dy.sl {
   background: var(--ac);
-  color: #fff;
+  color: #000;
+  font-weight: 600;
   border-color: var(--ac);
-  text-shadow:
-      -1px -1px 0 #000,
-      1px -1px 0 #000,
-      -1px 1px 0 #000,
-      1px 1px 0 #000,
-      0 0 3px #000;
 }
 .dy.ho.sl {
   background: #ef4444;
   border-color: #ef4444;
   color: #fff;
+}
+.dy.ho.sl i {
+  background: #fff;
 }
 .dy.td.sl {
   border-color: #fbb040;
@@ -312,7 +304,7 @@ pre {
   background: var(--ac);
 }
 .dy.sl i {
-  background: #fff;
+  background: #000;
 }
 .dy.td i {
   background: #fbb040;
@@ -370,7 +362,9 @@ nav .ic {
   width: 60px;
   height: 34px;
   border-radius: 17px;
-  transition: background 0.2s, transform 0.15s;
+  transition:
+    background 0.2s,
+    transform 0.15s;
 }
 nav svg {
   width: 25px;
