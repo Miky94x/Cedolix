@@ -223,15 +223,24 @@ function bMese() {
 }
 function vFerie() {
   const f = ferie(),
-    l = f.l,
-    d = (v) => (v == null ? "—" : fmt(v));
+    l = f.l;
   if (!l || f.ore == null)
     return `<h2>Ferie</h2><div class="card"><p style="color:var(--mu)">Carica una busta paga: ferie, permessi ed ex-festività vengono letti direttamente dal cedolino.</p></div>`;
-  return `<h2>Ferie</h2><div class="card"><div class="grid"><div class="k"><b>${fmt(f.gg)}</b><span>Giorni totali residui (ferie + permessi + ex-fest.)</span></div><div class="k"><b>${f.sett == null ? "—" : fmt1(f.sett)}</b><span>Settimane totali residue</span></div><div class="k"><b>${fmtH(f.ore)}</b><span>Ore totali residue</span></div>
-<div class="k"><b>${fmtH(f.fer)}</b><span>Ferie (anno scorso + corrente)</span></div><div class="k"><b>${fmtH(f.pe)}</b><span>Permessi + ex-festività</span></div>
-<div class="k"><b>${fmtH(l.ferieAP)}</b><span>Ferie residuo anno prec.</span></div><div class="k"><b>${fmtH(l.ferieMat)}</b><span>Ferie maturate quest'anno</span></div>
-<div class="k"><b>${fmtH(l.ferieGodAnno)}</b><span>Ferie godute da inizio anno</span></div></div>
-<p style="color:var(--mu);font-size:13px">Totale = saldi dell'ultima busta (${l.per || "?"}) meno le ferie segnate nel calendario dopo quel mese. Ferie segnate dopo la busta: ${f.usati}. 1 giorno = ${fmtH(std())}, 1 settimana = ${fmtH(wh())}.</p></div>`;
+  const row = (lab, val, sub, cls) =>
+      `<div class="fr ${cls || ""}"><div>${lab}${sub ? `<small>${sub}</small>` : ""}</div><b>${val}</b></div>`,
+    mese = l.per
+      ? cap(MESI[+l.per.slice(5, 7) - 1] || "") + " " + l.per.slice(0, 4)
+      : "ultima busta";
+  return `<h2>Ferie</h2>
+<div class="hero"><small>Ancora da usare</small><div class="big">${f.sett == null ? "—" : fmt1(f.sett) + " settimane"}</div><small>${fmt(f.gg)} giorni · ${fmtH(f.ore)} in totale (ferie + permessi + ex-festività)</small></div>
+<div class="card"><h3 class="fh">Ferie</h3>
+${row("Rimaste dall'anno scorso", fmtH(l.ferieAP))}
+${row("Maturate quest'anno", "+ " + fmtH(l.ferieMat))}
+${row("Già godute quest'anno", "− " + fmtH(l.ferieGodAnno))}
+${row("Saldo ferie", fmtH(f.fer), "secondo la busta di " + mese, "tt")}
+${f.usati ? row("Segnate nel calendario dopo la busta", "− " + f.usati + (f.usati === 1 ? " giorno" : " giorni")) : ""}</div>
+<div class="card"><h3 class="fh">Permessi ed ex-festività</h3>
+${row("Saldo", fmtH(f.pe), "secondo la busta di " + mese, "tt")}</div>`;
 }
 function vSet() {
   const s = S.set;
@@ -551,10 +560,9 @@ function vCal() {
   return `<div class="row"><button class="b s" id="pv">‹</button><h2>${MESI[m]} ${y}</h2><button class="b s" id="nx">›</button></div>
 <div class="card"><div class="cal">${["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"].map((g) => `<div class="wd">${g}</div>`).join("")}${c}</div></div>
 <div class="card"><b>Periodo di calcolo di ${MESI[m]}</b><div class="chips"><input type="date" id="ps" value="${ps}"><span>→</span><input type="date" id="pe" value="${pe}"></div></div>
-<div class="card"><div class="row"><b>${GF[D.getDay()]} ${D.getDate()} ${MESI[D.getMonth()]}</b><small style="color:${H[sel] ? "#ef4444" : "var(--mu)"}">${H[sel] || "giorno tipo " + fmtH(E)}</small></div>
+<div class="card"><div class="row"><b>${GF[D.getDay()]} ${D.getDate()} ${MESI[D.getMonth()]}</b><small style="color:${H[sel] ? "#ef4444" : "var(--mu)"}">${H[sel] || ""}</small></div>
 <div class="chips"><select id="dt">${op("", "Lavoro")}${op("ferie", "Ferie")}${op("permesso", "Permesso")}${op("malattia", "Malattia")}</select>${t === "" ? `<button class="b" id="da">+ Aggiungi turno</button>` : `<button class="b" id="di">Inserisci</button>`}<button class="b s" id="dc">Cancella</button></div>${x.turni && !x.t ? `<small style="color:var(--mu);display:block;margin-top:8px">${tl(x.turni)}</small>` : ""}</div>
-<div class="card"><div class="grid"><div class="k"><b>${fmtH(st.w + st.fe)}</b><span>Ore effettive (incl. assenze)</span></div><div class="k"><b>${fmtH(st.e)}</b><span>Ore previste</span></div><div class="k"><b class="${st.bal >= 0 ? "pos" : "neg"}">${st.bal > 0 ? "+" : ""}${fmtH(st.bal)}</b><span>Saldo mese</span></div><div class="k"><b>${st.ex} / ${st.hol}</b><span>Ferie / festivi nel mese</span></div></div>
-<small style="color:var(--mu)">Periodo: ${P.s.getDate()} ${MESI[P.s.getMonth()]} → ${P.e.getDate()} ${MESI[P.e.getMonth()]} · giorni fuori periodo sbiaditi · rosso = festivi e domeniche</small></div>`;
+<div class="card"><div class="grid"><div class="k"><b>${fmtH(st.w + st.fe)}</b><span>Ore effettive (incl. assenze)</span></div><div class="k"><b>${fmtH(st.e)}</b><span>Ore previste</span></div><div class="k"><b class="${st.bal >= 0 ? "pos" : "neg"}">${st.bal > 0 ? "+" : ""}${fmtH(st.bal)}</b><span>Saldo mese</span></div><div class="k"><b>${st.ex} / ${st.hol}</b><span>Ferie / festivi nel mese</span></div></div></div>`;
 }
 function bCal() {
   $("#pv").onclick = () => {
