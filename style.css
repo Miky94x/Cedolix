@@ -3,7 +3,7 @@
   --card: #1b1f23;
   --tx: #eceff1;
   --mu: #9aa3ab;
-  --ac: #d00cca;
+  --ac: #831fca;
   --on: #fff;
   --bd: #2b3138;
   --hol: #3a1d1d;
@@ -132,8 +132,8 @@ pre {
 .hero {
   background: linear-gradient(
     135deg,
-    var(--hero, #d00cca),
-    color-mix(in srgb, var(--hero, #d00cca) 72%, #0ea5e9)
+    var(--hero, #831fca),
+    color-mix(in srgb, var(--hero, #831fca) 72%, #0ea5e9)
   );
   color: var(--onh, #fff);
   border-radius: 18px;

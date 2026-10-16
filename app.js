@@ -307,7 +307,7 @@ function vSet() {
 <div class="sec">Calendario</div>
 <div class="card"><div class="fr"><div>Santo patrono ${yy}<small>Ogni anno ha la sua data</small></div><input type="date" id="pa" value="${sp ? yy + "-" + sp : ""}"></div></div>
 <div class="sec">Aspetto</div>
-<div class="card"><button type="button" class="tpk" id="tc"><span>Colore tema<small>Tocca per cambiarlo</small></span><i id="tsw" style="background:${s.tema || "#d00cca"}"></i></button><button class="b s wide" id="tr">Ripristina colore</button></div>
+<div class="card"><button type="button" class="tpk" id="tc"><span>Colore tema<small>Tocca per cambiarlo</small></span><i id="tsw" style="background:${s.tema || "#831fca"}"></i></button><button class="b s wide" id="tr">Ripristina colore</button></div>
 <button class="b wide" id="sv">Salva impostazioni</button><p id="ms" class="msg"></p>
 <div class="sec">Dati</div>
 <div class="card"><div class="fr"><div>Ultimo backup<small>Dati e PDF delle buste in un file ZIP</small></div><b id="bl" class="${old ? "neg" : "pos"}" style="font-size:14px">${fdt(s.lastBackup)}</b></div>
@@ -512,7 +512,7 @@ async function doBackup() {
   }
 }
 // versione del lettore PDF: alzala quando cambia parse2, le buste si rileggono da sole
-const PV = 4;
+const PV = 5;
 let rereading = false;
 async function rereadAll() {
   const L = S.pay.filter((p) => p.pdf),
@@ -590,7 +590,11 @@ function askReread() {
       const r = await rereadAll();
       bmsg(
         r.ok
-          ? "Rilette " + r.ok + " buste, " + r.ch + " aggiornate ✓" +
+          ? "Rilette " +
+              r.ok +
+              " buste, " +
+              r.ch +
+              " aggiornate ✓" +
               (r.ko ? " · " + r.ko + " non lette" : "") +
               (r.nopdf ? " · " + r.nopdf + " senza PDF" : "")
           : "Nessuna busta riletta.",
@@ -724,7 +728,7 @@ function askSave(go) {
 }
 function bSet() {
   $("#tc").onclick = () =>
-    colorModal(S.set.tema || "#d00cca", (hex) => {
+    colorModal(S.set.tema || "#831fca", (hex) => {
       S.set.tema = hex;
       applyTema();
       save();
@@ -735,7 +739,7 @@ function bSet() {
     delete S.set.tema;
     applyTema();
     save();
-    $("#tsw").style.background = "#d00cca";
+    $("#tsw").style.background = "#831fca";
   };
   $("#sv").onclick = () => {
     saveSet();
@@ -1133,17 +1137,33 @@ function checkBusta(p) {
     ["ore", "Ore ordinarie lavorate"],
   ].forEach(([k, l]) => {
     if (!has(p[k]))
-      add(l + " non letto", "Apri il PDF e controlla, oppure ricarica la busta");
+      add(
+        l + " non letto",
+        "Apri il PDF e controlla, oppure ricarica la busta",
+      );
   });
   if (+p.ggLav > 31 || +p.ore > 350)
-    add("Valore fuori scala", "Giorni lavorati " + (p.ggLav ?? "—") + " · ore ordinarie " + (p.ore ?? "—"));
+    add(
+      "Valore fuori scala",
+      "Giorni lavorati " +
+        (p.ggLav ?? "—") +
+        " · ore ordinarie " +
+        (p.ore ?? "—"),
+    );
   if (has(p.lordo) && has(p.tratt) && has(p.netto)) {
     const c = p.lordo - p.tratt,
       d = c - p.netto;
     if (Math.abs(d) > 1)
       add(
         "Competenze − trattenute ≠ netto",
-        "competenze " + f(p.lordo) + " − trattenute " + f(p.tratt) + " = " + f(c) + " · netto in busta " + f(p.netto),
+        "competenze " +
+          f(p.lordo) +
+          " − trattenute " +
+          f(p.tratt) +
+          " = " +
+          f(c) +
+          " · netto in busta " +
+          f(p.netto),
         sg(d) + " €",
       );
   }
@@ -1154,7 +1174,16 @@ function checkBusta(p) {
     if (Math.abs(d) > tol)
       add(
         nome + ": il saldo non torna",
-        "residuo AP " + f(ap) + " + maturato " + f(mat) + " − goduto " + f(god) + " = " + f(c) + " · saldo in busta " + f(sal),
+        "residuo AP " +
+          f(ap) +
+          " + maturato " +
+          f(mat) +
+          " − goduto " +
+          f(god) +
+          " = " +
+          f(c) +
+          " · saldo in busta " +
+          f(sal),
         sg(d) + " ore",
       );
   };
@@ -1169,15 +1198,31 @@ function checkBusta(p) {
     if (Math.abs(d) > 0.15)
       add(
         "Importo straordinari e maggiorazioni non torna",
-        "ore × paga oraria × maggiorazioni = " + f(c) + " € · in busta " + f(p.straordImp) + " €",
+        "ore × paga oraria × maggiorazioni = " +
+          f(c) +
+          " € · in busta " +
+          f(p.straordImp) +
+          " €",
         sg(d) + " €",
       );
   }
   if (p.voci && p.voci.some((v) => v.k)) {
-    const sm = (k) => r2(p.voci.filter((v) => v.k === k && !v.m).reduce((z, v) => z + (v.i || 0), 0));
-    [["C", "lordo", "Somma voci ≠ totale competenze"], ["T", "tratt", "Somma voci ≠ totale trattenute"]].forEach(([k, f2, t]) => {
+    const sm = (k) =>
+      r2(
+        p.voci
+          .filter((v) => v.k === k && !v.m)
+          .reduce((z, v) => z + (v.i || 0), 0),
+      );
+    [
+      ["C", "lordo", "Somma voci ≠ totale competenze"],
+      ["T", "tratt", "Somma voci ≠ totale trattenute"],
+    ].forEach(([k, f2, t]) => {
       if (has(p[f2]) && Math.abs(sm(k) - p[f2]) > 0.05)
-        add(t, "voci lette " + f(sm(k)) + " · totale in busta " + f(p[f2]), sg(sm(k) - p[f2]) + " €");
+        add(
+          t,
+          "voci lette " + f(sm(k)) + " · totale in busta " + f(p[f2]),
+          sg(sm(k) - p[f2]) + " €",
+        );
     });
   }
   const pv = p.per && S.pay.find((q) => q.per === perPrev(p.per));
@@ -1194,7 +1239,10 @@ function checkBusta(p) {
         add(l + " diverso dalla busta di " + L, pv[k] + " → " + p[k]);
     });
     if (has(p.pt) && has(pv.pt) && Math.abs(p.pt - pv.pt) > 0.01)
-      add("Part time diverso dalla busta di " + L, f(pv.pt) + "% → " + f(p.pt) + "%");
+      add(
+        "Part time diverso dalla busta di " + L,
+        f(pv.pt) + "% → " + f(p.pt) + "%",
+      );
     const cum = (nome, k, km) => {
       if (!has(p[k]) || (same && !has(pv[k]))) return;
       const base = same ? pv[k] : 0,
@@ -1203,7 +1251,16 @@ function checkBusta(p) {
       if (Math.abs(d) > tol)
         add(
           nome + " godute da inizio anno non tornano",
-          "busta di " + L + ": " + f(base) + " + godute nel mese " + f(g) + " = " + f(base + g) + " · in busta " + f(p[k]),
+          "busta di " +
+            L +
+            ": " +
+            f(base) +
+            " + godute nel mese " +
+            f(g) +
+            " = " +
+            f(base + g) +
+            " · in busta " +
+            f(p[k]),
           sg(d) + " ore",
         );
     };
@@ -1215,9 +1272,15 @@ function checkBusta(p) {
         ["Ex-festività", "exAP", "exMat"],
       ].forEach(([n, ap, mat]) => {
         if (has(p[ap]) && has(pv[ap]) && Math.abs(p[ap] - pv[ap]) > tol)
-          add(n + ": residuo AP cambiato", L + " " + f(pv[ap]) + " → " + f(p[ap]) + " ore");
+          add(
+            n + ": residuo AP cambiato",
+            L + " " + f(pv[ap]) + " → " + f(p[ap]) + " ore",
+          );
         if (has(p[mat]) && has(pv[mat]) && p[mat] < pv[mat] - tol)
-          add(n + ": maturato diminuito", L + " " + f(pv[mat]) + " → " + f(p[mat]) + " ore");
+          add(
+            n + ": maturato diminuito",
+            L + " " + f(pv[mat]) + " → " + f(p[mat]) + " ore",
+          );
       });
       [
         ["progImpInps", "Progressivo imponibile INPS"],
@@ -1226,7 +1289,10 @@ function checkBusta(p) {
         ["tfrAnno", "TFR quota anno"],
       ].forEach(([k, l]) => {
         if (has(p[k]) && has(pv[k]) && p[k] < pv[k] - 0.01)
-          add(l + " diminuito rispetto a " + L, f(pv[k]) + " → " + f(p[k]) + " €");
+          add(
+            l + " diminuito rispetto a " + L,
+            f(pv[k]) + " → " + f(p[k]) + " €",
+          );
       });
     }
   }
@@ -1285,12 +1351,41 @@ function simOre(y, m) {
     ps = D.supp * hr * sp,
     pf = D.fest * hr * fp,
     // altre competenze fisse della busta (es. indennità): maturano in proporzione alle ore previste
-    base = l.retribGG && l.retrib > 0 ? l.retrib : l.ore ? hr * (l.ore + (l.ferieGod || 0) + (l.exGod || 0)) : null,
-    paFull = base == null ? 0 : Math.max(0, l.lordo - base - (l.straordImp || 0)),
+    base =
+      l.retribGG && l.retrib > 0
+        ? l.retrib
+        : l.ore
+          ? hr * (l.ore + (l.ferieGod || 0) + (l.exGod || 0))
+          : null,
+    paFull =
+      base == null ? 0 : Math.max(0, l.lordo - base - (l.straordImp || 0)),
     prog = D.st.e ? Math.min(1, (D.st.w + D.st.fe) / D.st.e) : 0,
     pa = paFull * prog,
     lordo = po + ps + pf + pa;
-  return { l, hr, D, ord, po, ps, pf, pa, paFull, prog, sp, fp, lordo, netto: (lordo * l.netto) / l.lordo };
+  const q = quinto(l),
+    qd =
+      q &&
+      (!q.res ||
+        mIdx(k) - mIdx(l.per) <= Math.ceil(q.res / q.rata - 0.001) - 1),
+    qr = qd ? q.rata : 0,
+    nettoPre = l.netto + (q ? q.rata : 0);
+  return {
+    l,
+    hr,
+    D,
+    ord,
+    po,
+    ps,
+    pf,
+    pa,
+    paFull,
+    prog,
+    sp,
+    fp,
+    lordo,
+    qr,
+    netto: (lordo * nettoPre) / l.lordo - qr,
+  };
 }
 function vSim(pm, PP, dm) {
   const s = simOre(pm.getFullYear(), pm.getMonth()),
@@ -1306,6 +1401,7 @@ ${r("Suppl./straord. " + fmt1((s.sp - 1) * 100) + "%", eur(s.ps), fmtH(s.D.supp)
 ${r("Maggiorazione festivo " + Math.round(s.fp * 100) + "%", eur(s.pf), fmtH(s.D.fest) + " × " + fmt(s.hr * s.fp) + " €/h")}
 ${s.paFull > 0 ? r("Altre competenze fisse", eur(s.pa), "come nella busta di " + s.l.per + " · " + Math.round(s.prog * 100) + "% del mese") : ""}
 ${r("Lordo stimato", eur(s.lordo), "", "tt")}
+${s.qr ? r("Cessione del quinto", "− " + eur(s.qr), "rata ancora dovuta, già tolta dal netto") : ""}
 ${r("Netto stimato", "≈ " + eur(s.netto), "stesso rapporto netto/lordo della busta di " + s.l.per, "tt")}</div>`;
 }
 function vBk() {
@@ -1339,8 +1435,8 @@ function vHome() {
     hbig = fmtH(wk) + " / " + fmtH(st.e),
     hsub = "Periodo " + dm(PP.s) + " → " + dm(PP.e) + " · " + pct + "%";
   const nh = Object.entries({ ...H, ...holidays(y + 1) })
-      .filter((e) => e[0] >= k)
-      .sort()[0];
+    .filter((e) => e[0] >= k)
+    .sort()[0];
   const stt =
     H[k] && !x.t
       ? "Festivo: " + H[k]
@@ -1354,6 +1450,7 @@ function vHome() {
 ${vBk()}
 <div class="card"><div class="row"><b>Oggi</b><span style="color:var(--mu);text-align:right">${stt}</span></div>${x.turni && !x.t ? turniTab(x.turni) : ""}</div>
 <div class="card"><div class="fr" id="goc" style="cursor:pointer"><div>Ore di contratto</div><b style="color:var(--ac)">${wh() ? fmt(wh()) + " ore" : "—"}</b></div><div class="fr"><div>Data assunzione</div><b>${S.set.hire ? esc(S.set.hire.split("-").reverse().join("/")) : "—"}</b></div><div class="grid" style="margin-top:10px"><div class="k"><b>${a ? a.y + " a " + a.m + " m " + a.d + " g" : "—"}</b><span>Anzianità</span></div><div class="k"><b>${nd ? nd.getDate() + " " + MESI[nd.getMonth()].slice(0, 3) : "—"}</b><span>Prossimo festivo${nh ? ": " + nh[1] : ""}</span></div></div></div>
+${vQuinto()}
 ${vSim(pm, PP, dm)}`;
 }
 function fitBig() {
@@ -1468,11 +1565,21 @@ function checkMese(y, m) {
   const D = meseDati(y, m);
   return [
     ["Ore lavorate", D.st.w, (p.ore || 0) + (p.straord || 0)],
-    ["Ore suppl./straord. " + fmt1(p.suppPerc || 35) + "%", D.supp, p.straord || 0],
+    [
+      "Ore suppl./straord. " + fmt1(p.suppPerc || 35) + "%",
+      D.supp,
+      p.straord || 0,
+    ],
     ["Ore festive " + (p.festPerc || 30) + "%", D.fest, p.festOre || 0],
     ["Ferie godute", D.fer, p.ferieGod || 0],
     ["Permessi", D.perm, p.exGod || 0],
-  ].map(([lab, a, b]) => ({ lab, a, b, diff: a - b, ok: Math.abs(a - b) <= 0.25 }));
+  ].map(([lab, a, b]) => ({
+    lab,
+    a,
+    b,
+    diff: a - b,
+    ok: Math.abs(a - b) <= 0.25,
+  }));
 }
 function vBustaMese(y, m) {
   const ck = checkMese(y, m);
@@ -1537,7 +1644,11 @@ function ferieModal(k0) {
           m.querySelector("#fd").textContent =
             ks.length +
             (ks.length === 1 ? " giorno" : " giorni") +
-            (fe ? " · " + fe + (fe === 1 ? " festivo escluso" : " festivi esclusi") : "");
+            (fe
+              ? " · " +
+                fe +
+                (fe === 1 ? " festivo escluso" : " festivi esclusi")
+              : "");
         };
       m.dirty = () => A.value !== k0 || B.value !== k0;
       A.onchange = B.onchange = upd;
@@ -1605,11 +1716,7 @@ function bCal() {
       keep = 1;
       return render();
     }
-    const what = x.t
-      ? cap(x.t)
-      : x.h
-        ? fmtH(x.h) + " registrate"
-        : "turni";
+    const what = x.t ? cap(x.t) : x.h ? fmtH(x.h) + " registrate" : "turni";
     confirmBox(
       "Cancellare il giorno?",
       `Stai per cancellare <b>${GF[D.getDay()]} ${D.getDate()} ${MESI[D.getMonth()]}</b> (${what}). L'operazione non si può annullare.`,
@@ -1881,10 +1988,20 @@ function parse2(pg) {
   if (VC.length) {
     R.voci = VC;
     const sum = (a) => a.reduce((z, v) => z + (v.i || 0), 0),
-      ex = VC.filter((v) => v.k !== "T" && !v.m && /supplementar|straordinar|maggiorazione/i.test(v.d)),
-      qo = (re) => VC.filter((v) => v.u === "ORE" && re.test(v.d)).reduce((z, v) => z + (v.q || 0), 0);
+      ex = VC.filter(
+        (v) =>
+          v.k !== "T" &&
+          !v.m &&
+          /supplementar|straordinar|maggiorazione/i.test(v.d),
+      ),
+      qo = (re) =>
+        VC.filter((v) => v.u === "ORE" && re.test(v.d)).reduce(
+          (z, v) => z + (v.q || 0),
+          0,
+        );
     if (ex.length) put("straordImp", Math.round(sum(ex) * 100) / 100);
-    if (qo(/supplementar|straordinar/i)) put("straord", qo(/supplementar|straordinar/i));
+    if (qo(/supplementar|straordinar/i))
+      put("straord", qo(/supplementar|straordinar/i));
     if (qo(/festiv/i)) put("festOre", qo(/festiv/i));
   }
   return R;
@@ -1903,13 +2020,31 @@ function parseVoci(pg) {
     const d = cC - cT,
       cR = hc("riferimento") ?? cT - d,
       cB = hc("importobase") ?? cR - d,
-      Z = [["B", cB], ["R", cR], ["T", cT], ["C", cC]];
+      Z = [
+        ["B", cB],
+        ["R", cR],
+        ["T", cT],
+        ["C", cC],
+      ];
     (P.ln || []).forEach((row) => {
-      const t = row.slice();
+      const t = [];
+      row.forEach((it) => {
+        const m = it.s.match(
+          /^(.*[^\d\s.,()-].*?)\s+(-?[\d.]+,\d+(?:\s*(?:ORE|GG|%))?)$/,
+        );
+        if (m) {
+          const f = m[1].length / it.s.length,
+            w = it.w || 0;
+          t.push(
+            { ...it, s: m[1], w: w * f },
+            { ...it, s: m[2], x: it.x + w * f, w: w * (1 - f) },
+          );
+        } else t.push(it);
+      });
       while (t.length && /^\*+$/.test(t[0].s)) t.shift();
       if (t.length < 3) return;
       const code = t[0].s.replace(/^\*+/, "");
-      if (!/^[A-Z]{0,2}\d{4,6}$/.test(code)) return;
+      if (!/^(?:[A-Z]{1,3}\d{3,6}|\d{4,6})$/.test(code)) return;
       const D = [],
         V = [];
       let par = false;
@@ -1922,10 +2057,13 @@ function parseVoci(pg) {
             V.push({
               v: N(s.replace(/[^\d.,-]/g, "")),
               u: (s.match(/ORE|GG|%/i) || [""])[0].toUpperCase(),
-              z: Z.reduce((a, b) => (Math.abs(cx - b[1]) < Math.abs(cx - a[1]) ? b : a))[0],
+              z: Z.reduce((a, b) =>
+                Math.abs(cx - b[1]) < Math.abs(cx - a[1]) ? b : a,
+              )[0],
               m: par,
             });
-          } else if (/^(ORE|GG|%)$/i.test(s) && V.length) V[V.length - 1].u = s.toUpperCase();
+          } else if (/^(ORE|GG|%)$/i.test(s) && V.length)
+            V[V.length - 1].u = s.toUpperCase();
           else if (!V.length) D.push(s);
         }
         if (it.s.includes(")")) par = false;
@@ -1934,16 +2072,64 @@ function parseVoci(pg) {
         q = V.find((v) => v.u),
         r = V.find((v) => !v.u && (v.z === "B" || v.z === "R"));
       if (!am && !q) return;
-      out.push({ c: code, d: D.join(" "), q: q ? q.v : null, u: q ? q.u : "", r: r ? r.v : null, i: am ? am.v : null, k: am ? am.z : null, m: am && am.m ? 1 : 0 });
+      out.push({
+        c: code,
+        d: D.join(" ").replace(/\s*Residuo$/i, ""),
+        q: q ? q.v : null,
+        u: q ? q.u : "",
+        r: r ? r.v : null,
+        i: am ? am.v : null,
+        k: am ? am.z : null,
+        m: am && am.m ? 1 : 0,
+      });
     });
   });
   return out;
+}
+const isQ = (v) =>
+  v.k === "T" && /terzi|cessione|trattenuta|delegazion|pignorament/i.test(v.d);
+const mIdx = (per) => +per.slice(0, 4) * 12 + +per.slice(5, 7) - 1;
+function quinto(p) {
+  const v = p && p.voci && p.voci.find(isQ);
+  return v && v.i > 0 ? { rata: v.i, res: v.r > 0 ? v.r : null, d: v.d } : null;
+}
+function quintoStato() {
+  const l = S.pay
+      .filter((p) => p.per)
+      .sort((a, b) => b.per.localeCompare(a.per))[0],
+    q = quinto(l);
+  if (!q) return null;
+  const n = q.res ? Math.ceil(q.res / q.rata - 0.001) : null,
+    t = new Date(),
+    el = Math.max(0, t.getFullYear() * 12 + t.getMonth() - mIdx(l.per));
+  return {
+    l,
+    q,
+    n,
+    left: n == null ? null : Math.max(0, n - el),
+    fine: n == null ? null : mIdx(l.per) + n - 1,
+    resOra: q.res == null ? null : Math.max(0, q.res - q.rata * el),
+  };
+}
+function vQuinto() {
+  const s = quintoStato();
+  if (!s) return "";
+  const eur = (v) => fmt(v) + " €",
+    fl =
+      s.fine == null
+        ? "—"
+        : cap(MESI[s.fine % 12]) + " " + Math.floor(s.fine / 12);
+  return `<div class="card"><h3 class="fh">Cessione del quinto</h3><div class="grid" style="margin-top:8px"><div class="k"><b>${s.left == null ? "—" : s.left}</b><span>Rate ancora da pagare</span></div><div class="k"><b>${fl}</b><span>Ultima rata</span></div><div class="k"><b>${eur(s.q.rata)}</b><span>Rata mensile</span></div><div class="k"><b>${s.resOra == null ? "—" : eur(s.resOra)}</b><span>Residuo stimato</span></div></div><small style="display:block;color:var(--mu);margin-top:10px">Dalla voce «${esc(s.q.d)}» della busta di ${perLab(s.l.per)}${s.n != null ? ": residuo " + eur(s.q.res) + " ÷ rata = " + s.n + " rate, compresa quella del mese" : ""}. È una stima: la busta non riporta la data di fine.</small></div>`;
 }
 const r2 = (x) => Math.round(x * 100) / 100;
 function simCard(p) {
   const s = p.sim;
   if (!s) return "";
-  const R = [["Lordo", s.lordo, p.lordo], ["Netto", s.netto, p.netto], ["Extra (suppl./straord. + festivo)", s.extra, p.straordImp]]
+  const R = [
+    ["Lordo", s.lordo, p.lordo],
+    ["Netto", s.netto, p.netto],
+    ["Extra (suppl./straord. + festivo)", s.extra, p.straordImp],
+  ]
     .filter((x) => x[2] != null)
     .map(([l, a, b]) => {
       const d = b - a,
@@ -1956,7 +2142,7 @@ function simCard(p) {
 function vociHtml(p) {
   const V = p.voci;
   if (!V || !V.length) return "";
-  return `<details class="card cl"><summary><h3 class="fh">Voci della busta (${V.length})</h3></summary>${V.map((v) => `<div class="fr"><div>${esc(v.d)}<small>${esc(v.c)}${v.q != null ? " · " + fmt(v.q) + " " + v.u : ""}${v.r != null ? " · base " + fmt(v.r) : ""}${v.k === "T" ? " · trattenuta" : ""}${v.m ? " · informativa, fuori dai totali" : ""}</small></div><b>${v.i != null ? fmt(v.i) + " €" : "—"}</b></div>`).join("")}</details>`;
+  return `<details class="card cl"><summary><h3 class="fh">Voci della busta (${V.length})</h3></summary>${V.map((v) => `<div class="fr"><div>${esc(v.d)}<small>${esc(v.c)}${v.q != null ? " · " + fmt(v.q) + " " + v.u : ""}${v.r != null ? " · base " + fmt(v.r) : ""}${v.k === "T" ? " · trattenuta" : ""}${v.m ? " · informativa, fuori dai totali" : ""}${isQ(v) ? " · cessione del quinto" : ""}</small></div><b>${v.i != null ? fmt(v.i) + " €" : "—"}</b></div>`).join("")}</details>`;
 }
 function vPay2() {
   const P = S.pay
@@ -2002,7 +2188,22 @@ ${row("Anzianità", a ? a.y + " a " + a.m + " m " + a.d + " g" : "—", a ? a.to
 ${row("Buste salvate", P.length)}
 ${row("Netto medio", n.length ? eur(tot / n.length) : "—")}
 ${row("Netto totale salvato", n.length ? eur(tot) : "—")}
-${(() => { const q = P.filter((p) => p.sim && p.netto); return q.length ? row("Scostamento medio simulazione (netto)", fmt1(q.reduce((z, p) => z + Math.abs(p.sim.netto - p.netto) / p.netto * 100, 0) / q.length) + "%", q.length + (q.length === 1 ? " busta confrontata" : " buste confrontate")) : ""; })()}</div>
+${(() => {
+  const q = P.filter((p) => p.sim && p.netto);
+  return q.length
+    ? row(
+        "Scostamento medio simulazione (netto)",
+        fmt1(
+          q.reduce(
+            (z, p) => z + (Math.abs(p.sim.netto - p.netto) / p.netto) * 100,
+            0,
+          ) / q.length,
+        ) + "%",
+        q.length +
+          (q.length === 1 ? " busta confrontata" : " buste confrontate"),
+      )
+    : "";
+})()}</div>
 <button class="b" id="pu" style="width:100%;margin-bottom:12px">+ Carica busta paga</button>
 ${payList(P)}`;
 }
@@ -2141,7 +2342,14 @@ function uploadModal(f) {
             S.pay = S.pay.filter((p) => !(p.per && p.per === o.per));
             {
               const sm = simOre(+o.per.slice(0, 4), +o.per.slice(5, 7) - 1);
-              if (sm) o.sim = { base: sm.l.per, lordo: r2(sm.lordo), netto: r2(sm.netto), extra: r2(sm.ps + sm.pf), hr: sm.hr };
+              if (sm)
+                o.sim = {
+                  base: sm.l.per,
+                  lordo: r2(sm.lordo),
+                  netto: r2(sm.netto),
+                  extra: r2(sm.ps + sm.pf),
+                  hr: sm.hr,
+                };
             }
             let pf = false;
             try {
