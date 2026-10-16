@@ -512,7 +512,7 @@ async function doBackup() {
   }
 }
 // versione del lettore PDF: alzala quando cambia parse2, le buste si rileggono da sole
-const PV = 2;
+const PV = 3;
 let rereading = false;
 async function rereadAll() {
   const L = S.pay.filter((p) => p.pdf),
@@ -538,6 +538,10 @@ async function rereadAll() {
             p[k] = v;
             c = true;
           }
+        }
+        if (R.voci && JSON.stringify(p.voci) !== JSON.stringify(R.voci)) {
+          p.voci = R.voci;
+          c = true;
         }
         r.ok++;
         if (c) r.ch++;
@@ -1101,7 +1105,7 @@ function detPay(id) {
       return R ? `<div class="card"><h3 class="fh">${tit}</h3>${R}</div>` : "";
     }).join("");
   modal(
-    `<div class="row" style="margin-bottom:12px"><h3 style="margin:0">Dettaglio · ${lab}</h3><div class="ba"><button class="b" id="mc">Chiudi</button></div></div>${chkHtml(p)}${html || "<p style='color:var(--mu)'>Nessun dato salvato per questa busta.</p>"}`,
+    `<div class="row" style="margin-bottom:12px"><h3 style="margin:0">Dettaglio · ${lab}</h3><div class="ba"><button class="b" id="mc">Chiudi</button></div></div>${simCard(p)}${chkHtml(p)}${html || "<p style='color:var(--mu)'>Nessun dato salvato per questa busta.</p>"}${vociHtml(p)}`,
     (m, close) => {
       m.querySelector("#mc").onclick = close;
     },
@@ -1168,6 +1172,13 @@ function checkBusta(p) {
         "ore × paga oraria × maggiorazioni = " + f(c) + " € · in busta " + f(p.straordImp) + " €",
         sg(d) + " €",
       );
+  }
+  if (p.voci && p.voci.length && p.voci.every((v) => v.k)) {
+    const sm = (k) => r2(p.voci.filter((v) => v.k === k).reduce((z, v) => z + (v.i || 0), 0));
+    [["C", "lordo", "Somma voci ≠ totale competenze"], ["T", "tratt", "Somma voci ≠ totale trattenute"]].forEach(([k, f2, t]) => {
+      if (has(p[f2]) && Math.abs(sm(k) - p[f2]) > 0.05)
+        add(t, "voci lette " + f(sm(k)) + " · totale in busta " + f(p[f2]), sg(sm(k) - p[f2]) + " €");
+    });
   }
   const pv = p.per && S.pay.find((q) => q.per === perPrev(p.per));
   if (pv) {
@@ -1700,14 +1711,11 @@ async function readPdf2(f) {
         if (l && Math.abs(l.y - t.y) <= 3) l.t.push(t);
         else L.push({ y: t.y, t: [t] });
       });
+    L.forEach((l) => l.t.sort((a, b) => a.x - b.x));
     pg.push({
       it,
-      txt: L.map((l) =>
-        l.t
-          .sort((a, b) => a.x - b.x)
-          .map((t) => t.s)
-          .join(" "),
-      ).join("\n"),
+      ln: L.map((l) => l.t),
+      txt: L.map((l) => l.t.map((t) => t.s).join(" ")).join("\n"),
     });
   }
   return pg;
@@ -1868,7 +1876,70 @@ function parse2(pg) {
     put("progImpIrpef", N(near(P, "imp.irpef", "b")));
     put("progIrpef", N(near(P, "irpefpagata", "b")));
   });
+  const VC = parseVoci(pg);
+  if (VC.length) {
+    R.voci = VC;
+    const sum = (a) => a.reduce((z, v) => z + (v.i || 0), 0),
+      ex = VC.filter((v) => v.k !== "T" && /supplementar|straordinar|maggiorazione/i.test(v.d)),
+      qo = (re) => VC.filter((v) => v.u === "ORE" && re.test(v.d)).reduce((z, v) => z + (v.q || 0), 0);
+    if (ex.length) put("straordImp", Math.round(sum(ex) * 100) / 100);
+    if (qo(/supplementar|straordinar/i)) put("straord", qo(/supplementar|straordinar/i));
+    if (qo(/festiv/i)) put("festOre", qo(/festiv/i));
+  }
   return R;
+}
+// legge ogni riga-voce: codice, descrizione, quantita (ORE/GG), base, importo, colonna (C competenze / T trattenute)
+function parseVoci(pg) {
+  const out = [];
+  pg.forEach((P) => {
+    const hx = (k) => {
+        const h = (P.it || []).find((t) => mn(t.s).startsWith(k));
+        return h ? h.x : null;
+      },
+      xc = hx("competenze"),
+      xt = hx("trattenute");
+    (P.ln || []).forEach((t) => {
+      if (t.length < 3 || !/^[A-Z]?\d{4,6}$/.test(t[0].s)) return;
+      const D = [],
+        V = [];
+      for (const it of t.slice(1)) {
+        if (/^-?[\d.]+,\d+\s*(ORE|GG)?$/i.test(it.s)) {
+          const u = (it.s.match(/ORE|GG/i) || [""])[0].toUpperCase(),
+            raw = it.s.replace(/[^\d.,-]/g, "");
+          V.push({ v: N(raw), u, x: it.x, dec: (raw.split(",")[1] || "").length });
+        } else if (/^(ORE|GG)$/i.test(it.s) && V.length) V[V.length - 1].u = it.s.toUpperCase();
+        else if (!V.length) D.push(it.s);
+      }
+      const q = V.find((v) => v.u),
+        r = V.find((v) => !v.u && v.dec >= 3),
+        im = V.filter((v) => !v.u && v.dec === 2).pop();
+      if (!im && !q) return;
+      let k = null;
+      if (im && xc != null && xt != null)
+        k = Math.abs(im.x - xt) < Math.abs(im.x - xc) ? "T" : "C";
+      out.push({ c: t[0].s, d: D.join(" "), q: q ? q.v : null, u: q ? q.u : "", r: r ? r.v : null, i: im ? im.v : null, k });
+    });
+  });
+  return out;
+}
+const r2 = (x) => Math.round(x * 100) / 100;
+function simCard(p) {
+  const s = p.sim;
+  if (!s) return "";
+  const R = [["Lordo", s.lordo, p.lordo], ["Netto", s.netto, p.netto], ["Extra (suppl./straord. + festivo)", s.extra, p.straordImp]]
+    .filter((x) => x[2] != null)
+    .map(([l, a, b]) => {
+      const d = b - a,
+        pc = b ? Math.abs(d / b) * 100 : 0;
+      return `<div class="fr"><div>${l}<small>stimato ${fmt(a)} € · reale ${fmt(b)} €${b ? " · " + fmt1(pc) + "%" : ""}</small></div><b class="${pc > 2 ? "neg" : "pos"}">${d > 0 ? "+" : ""}${fmt(d)} €</b></div>`;
+    })
+    .join("");
+  return `<div class="card"><h3 class="fh">Simulato contro reale</h3><small style="color:var(--mu)">Stima fatta al caricamento, sulla base della busta di ${perLab(s.base)}. Differenza = reale − stimato.</small>${R}</div>`;
+}
+function vociHtml(p) {
+  const V = p.voci;
+  if (!V || !V.length) return "";
+  return `<details class="card cl"><summary><h3 class="fh">Voci della busta (${V.length})</h3></summary>${V.map((v) => `<div class="fr"><div>${esc(v.d)}<small>${esc(v.c)}${v.q != null ? " · " + fmt(v.q) + " " + v.u : ""}${v.r != null ? " · base " + fmt(v.r) : ""}${v.k === "T" ? " · trattenuta" : ""}</small></div><b>${v.i != null ? fmt(v.i) + " €" : "—"}</b></div>`).join("")}</details>`;
 }
 function vPay2() {
   const P = S.pay
@@ -1913,7 +1984,8 @@ ${row("TFR accantonato al 31/12", eur(l.tfrFondo))}</details>`
 ${row("Anzianità", a ? a.y + " a " + a.m + " m " + a.d + " g" : "—", a ? a.tot + " giorni" : "carica una busta")}
 ${row("Buste salvate", P.length)}
 ${row("Netto medio", n.length ? eur(tot / n.length) : "—")}
-${row("Netto totale salvato", n.length ? eur(tot) : "—")}</div>
+${row("Netto totale salvato", n.length ? eur(tot) : "—")}
+${(() => { const q = P.filter((p) => p.sim && p.netto); return q.length ? row("Scostamento medio simulazione (netto)", fmt1(q.reduce((z, p) => z + Math.abs(p.sim.netto - p.netto) / p.netto * 100, 0) / q.length) + "%", q.length + (q.length === 1 ? " busta confrontata" : " buste confrontate")) : ""; })()}</div>
 <button class="b" id="pu" style="width:100%;margin-bottom:12px">+ Carica busta paga</button>
 ${payList(P)}`;
 }
@@ -2045,10 +2117,15 @@ function uploadModal(f) {
               return;
             }
             if (o.hire && !S.set.hire) S.set.hire = o.hire;
+            if (R.voci) o.voci = R.voci;
             S.pay
               .filter((p) => p.per && p.per === o.per)
               .forEach((p) => pdfDel(p.id).catch(() => {}));
             S.pay = S.pay.filter((p) => !(p.per && p.per === o.per));
+            {
+              const sm = simOre(+o.per.slice(0, 4), +o.per.slice(5, 7) - 1);
+              if (sm) o.sim = { base: sm.l.per, lordo: r2(sm.lordo), netto: r2(sm.netto), extra: r2(sm.ps + sm.pf), hr: sm.hr };
+            }
             let pf = false;
             try {
               await pdfPut(o.id, await f.arrayBuffer());
