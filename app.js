@@ -512,7 +512,7 @@ async function doBackup() {
   }
 }
 // versione del lettore PDF: alzala quando cambia parse2, le buste si rileggono da sole
-const PV = 3;
+const PV = 4;
 let rereading = false;
 async function rereadAll() {
   const L = S.pay.filter((p) => p.pdf),
@@ -1173,8 +1173,8 @@ function checkBusta(p) {
         sg(d) + " €",
       );
   }
-  if (p.voci && p.voci.length && p.voci.every((v) => v.k)) {
-    const sm = (k) => r2(p.voci.filter((v) => v.k === k).reduce((z, v) => z + (v.i || 0), 0));
+  if (p.voci && p.voci.some((v) => v.k)) {
+    const sm = (k) => r2(p.voci.filter((v) => v.k === k && !v.m).reduce((z, v) => z + (v.i || 0), 0));
     [["C", "lordo", "Somma voci ≠ totale competenze"], ["T", "tratt", "Somma voci ≠ totale trattenute"]].forEach(([k, f2, t]) => {
       if (has(p[f2]) && Math.abs(sm(k) - p[f2]) > 0.05)
         add(t, "voci lette " + f(sm(k)) + " · totale in busta " + f(p[f2]), sg(sm(k) - p[f2]) + " €");
@@ -1702,6 +1702,7 @@ async function readPdf2(f) {
           s: t.str.trim(),
           x: t.transform[4],
           y: t.transform[5],
+          w: t.width,
         })),
       L = [];
     it.slice()
@@ -1880,7 +1881,7 @@ function parse2(pg) {
   if (VC.length) {
     R.voci = VC;
     const sum = (a) => a.reduce((z, v) => z + (v.i || 0), 0),
-      ex = VC.filter((v) => v.k !== "T" && /supplementar|straordinar|maggiorazione/i.test(v.d)),
+      ex = VC.filter((v) => v.k !== "T" && !v.m && /supplementar|straordinar|maggiorazione/i.test(v.d)),
       qo = (re) => VC.filter((v) => v.u === "ORE" && re.test(v.d)).reduce((z, v) => z + (v.q || 0), 0);
     if (ex.length) put("straordImp", Math.round(sum(ex) * 100) / 100);
     if (qo(/supplementar|straordinar/i)) put("straord", qo(/supplementar|straordinar/i));
@@ -1892,32 +1893,48 @@ function parse2(pg) {
 function parseVoci(pg) {
   const out = [];
   pg.forEach((P) => {
-    const hx = (k) => {
+    const hc = (k) => {
         const h = (P.it || []).find((t) => mn(t.s).startsWith(k));
-        return h ? h.x : null;
+        return h ? h.x + (h.w || 0) / 2 : null;
       },
-      xc = hx("competenze"),
-      xt = hx("trattenute");
-    (P.ln || []).forEach((t) => {
-      if (t.length < 3 || !/^[A-Z]?\d{4,6}$/.test(t[0].s)) return;
+      cT = hc("trattenute"),
+      cC = hc("competenze");
+    if (cT == null || cC == null) return;
+    const d = cC - cT,
+      cR = hc("riferimento") ?? cT - d,
+      cB = hc("importobase") ?? cR - d,
+      Z = [["B", cB], ["R", cR], ["T", cT], ["C", cC]];
+    (P.ln || []).forEach((row) => {
+      const t = row.slice();
+      while (t.length && /^\*+$/.test(t[0].s)) t.shift();
+      if (t.length < 3) return;
+      const code = t[0].s.replace(/^\*+/, "");
+      if (!/^[A-Z]{0,2}\d{4,6}$/.test(code)) return;
       const D = [],
         V = [];
+      let par = false;
       for (const it of t.slice(1)) {
-        if (/^-?[\d.]+,\d+\s*(ORE|GG)?$/i.test(it.s)) {
-          const u = (it.s.match(/ORE|GG/i) || [""])[0].toUpperCase(),
-            raw = it.s.replace(/[^\d.,-]/g, "");
-          V.push({ v: N(raw), u, x: it.x, dec: (raw.split(",")[1] || "").length });
-        } else if (/^(ORE|GG)$/i.test(it.s) && V.length) V[V.length - 1].u = it.s.toUpperCase();
-        else if (!V.length) D.push(it.s);
+        if (it.s.includes("(")) par = true;
+        const s = it.s.replace(/[()]/g, "").trim();
+        if (s) {
+          if (/^-?[\d.]+,\d+\s*(ORE|GG|%)?$/i.test(s)) {
+            const cx = it.x + (it.w || 0) / 2;
+            V.push({
+              v: N(s.replace(/[^\d.,-]/g, "")),
+              u: (s.match(/ORE|GG|%/i) || [""])[0].toUpperCase(),
+              z: Z.reduce((a, b) => (Math.abs(cx - b[1]) < Math.abs(cx - a[1]) ? b : a))[0],
+              m: par,
+            });
+          } else if (/^(ORE|GG|%)$/i.test(s) && V.length) V[V.length - 1].u = s.toUpperCase();
+          else if (!V.length) D.push(s);
+        }
+        if (it.s.includes(")")) par = false;
       }
-      const q = V.find((v) => v.u),
-        r = V.find((v) => !v.u && v.dec >= 3),
-        im = V.filter((v) => !v.u && v.dec === 2).pop();
-      if (!im && !q) return;
-      let k = null;
-      if (im && xc != null && xt != null)
-        k = Math.abs(im.x - xt) < Math.abs(im.x - xc) ? "T" : "C";
-      out.push({ c: t[0].s, d: D.join(" "), q: q ? q.v : null, u: q ? q.u : "", r: r ? r.v : null, i: im ? im.v : null, k });
+      const am = V.filter((v) => !v.u && (v.z === "T" || v.z === "C")).pop(),
+        q = V.find((v) => v.u),
+        r = V.find((v) => !v.u && (v.z === "B" || v.z === "R"));
+      if (!am && !q) return;
+      out.push({ c: code, d: D.join(" "), q: q ? q.v : null, u: q ? q.u : "", r: r ? r.v : null, i: am ? am.v : null, k: am ? am.z : null, m: am && am.m ? 1 : 0 });
     });
   });
   return out;
@@ -1939,7 +1956,7 @@ function simCard(p) {
 function vociHtml(p) {
   const V = p.voci;
   if (!V || !V.length) return "";
-  return `<details class="card cl"><summary><h3 class="fh">Voci della busta (${V.length})</h3></summary>${V.map((v) => `<div class="fr"><div>${esc(v.d)}<small>${esc(v.c)}${v.q != null ? " · " + fmt(v.q) + " " + v.u : ""}${v.r != null ? " · base " + fmt(v.r) : ""}${v.k === "T" ? " · trattenuta" : ""}</small></div><b>${v.i != null ? fmt(v.i) + " €" : "—"}</b></div>`).join("")}</details>`;
+  return `<details class="card cl"><summary><h3 class="fh">Voci della busta (${V.length})</h3></summary>${V.map((v) => `<div class="fr"><div>${esc(v.d)}<small>${esc(v.c)}${v.q != null ? " · " + fmt(v.q) + " " + v.u : ""}${v.r != null ? " · base " + fmt(v.r) : ""}${v.k === "T" ? " · trattenuta" : ""}${v.m ? " · informativa, fuori dai totali" : ""}</small></div><b>${v.i != null ? fmt(v.i) + " €" : "—"}</b></div>`).join("")}</details>`;
 }
 function vPay2() {
   const P = S.pay

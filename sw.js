@@ -1,4 +1,4 @@
-const V = "cedolix-1.11.0",
+const V = "cedolix-1.11.1",
   LOCAL = [
     "./",
     "index.html",
