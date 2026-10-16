@@ -931,6 +931,10 @@ const DET = [
       ["straordImp", "Importo straord./suppl.", "e"],
       ["ggLav", "Giorni lavorati", "n"],
       ["festOre", "Ore festivo lavorate", "o"],
+      ["suppPerc", "Maggiorazione suppl./straord.", "%"],
+      ["festPerc", "Maggiorazione festivo", "%"],
+      ["retrib", "Retribuzione mensile fissa", "e"],
+      ["retribGG", "Giorni retribuiti", "n"],
     ],
   ],
   [
@@ -1052,12 +1056,16 @@ function simOre(y, m) {
       : 0);
   if (!hr) return null;
   const D = meseDati(y, m),
+    sp = 1 + (l.suppPerc || 35) / 100,
+    fp = (l.festPerc || 30) / 100,
+    fisso = !!(l.retribGG && l.retrib > 0),
     ord = Math.max(0, D.st.w + D.st.fe - D.supp),
-    po = ord * hr,
-    ps = D.supp * hr * 1.35,
-    pf = D.fest * hr * 0.3,
-    lordo = po + ps + pf;
-  return { l, hr, D, ord, po, ps, pf, lordo, netto: (lordo * l.netto) / l.lordo };
+    po = fisso ? l.retrib : ord * hr,
+    ps = D.supp * hr * sp,
+    pf = D.fest * hr * fp,
+    pa = fisso ? Math.max(0, l.lordo - l.retrib - (l.straordImp || 0)) : 0,
+    lordo = po + ps + pf + pa;
+  return { l, hr, D, ord, po, ps, pf, pa, sp, fp, fisso, lordo, netto: (lordo * l.netto) / l.lordo };
 }
 function vSim(pm, PP, dm) {
   const s = simOre(pm.getFullYear(), pm.getMonth()),
@@ -1068,9 +1076,10 @@ function vSim(pm, PP, dm) {
   if (!s)
     return `<div class="card">${tit}<p style="color:var(--mu);margin:10px 0 0">Carica una busta paga per calcolare la paga oraria.</p></div>`;
   return `<div class="card">${tit}
-${r("Ore ordinarie", eur(s.po), fmtH(s.ord) + " × " + fmt(s.hr) + " €/h")}
-${r("Supplementare 35%", eur(s.ps), fmtH(s.D.supp) + " × " + fmt(s.hr * 1.35) + " €/h")}
-${r("Maggiorazione festivo 30%", eur(s.pf), fmtH(s.D.fest) + " × " + fmt(s.hr * 0.3) + " €/h")}
+${s.fisso ? r("Retribuzione mensile", eur(s.po), "importo fisso · " + fmt(s.l.retribGG) + " giorni") : r("Ore ordinarie", eur(s.po), fmtH(s.ord) + " × " + fmt(s.hr) + " €/h")}
+${r("Suppl./straord. " + Math.round((s.sp - 1) * 100) + "%", eur(s.ps), fmtH(s.D.supp) + " × " + fmt(s.hr * s.sp) + " €/h")}
+${r("Maggiorazione festivo " + Math.round(s.fp * 100) + "%", eur(s.pf), fmtH(s.D.fest) + " × " + fmt(s.hr * s.fp) + " €/h")}
+${s.pa > 0.5 ? r("Altre competenze fisse", eur(s.pa), "come nella busta di " + s.l.per) : ""}
 ${r("Lordo stimato", eur(s.lordo), "", "tt")}
 ${r("Netto stimato", "≈ " + eur(s.netto), "stesso rapporto netto/lordo della busta di " + s.l.per, "tt")}</div>`;
 }
@@ -1222,8 +1231,8 @@ function checkMese(y, m) {
   const D = meseDati(y, m);
   return [
     ["Ore lavorate", D.st.w, (p.ore || 0) + (p.straord || 0)],
-    ["Ore supplementari 35%", D.supp, p.straord || 0],
-    ["Ore festive 30%", D.fest, p.festOre || 0],
+    ["Ore suppl./straord. " + (p.suppPerc || 35) + "%", D.supp, p.straord || 0],
+    ["Ore festive " + (p.festPerc || 30) + "%", D.fest, p.festOre || 0],
     ["Ferie godute", D.fer, p.ferieGod || 0],
     ["Permessi", D.perm, p.exGod || 0],
   ].map(([lab, a, b]) => ({ lab, a, b, diff: a - b, ok: Math.abs(a - b) <= 0.25 }));
@@ -1406,6 +1415,10 @@ const FD = [
     ["oraria", "Paga oraria base €/h"],
     ["ggLav", "Giorni lavorati"],
     ["festOre", "Ore festivo lavorate"],
+    ["suppPerc", "Maggiorazione suppl./straord. %"],
+    ["festPerc", "Maggiorazione festivo %"],
+    ["retrib", "Retribuzione mensile fissa €"],
+    ["retribGG", "Giorni retribuiti (paga a giorni)"],
     ["ferieGod", "Ferie godute nel mese (ore)"],
     ["exGod", "Perm./ex-fest. godute nel mese (ore)"],
     ["ferieAP", "Ferie residuo AP (ore)"],
@@ -1539,13 +1552,15 @@ function parse2(pg) {
     put("liv", g(/(\d+)\s*°?\s*Livello/i));
     put("qual", g(/\s([A-Z]{2,5})\s+\d+\s*Livello/));
     put("pt", N((g(/Part\s*Time\s*([\d.,]+)\s*%/i) || "").replace(".", ",")));
+    // le colonne vuote (es. ore INPS) cambiano da busta a busta:
+    // i giorni lavorati sono l'ultimo intero prima delle ore ordinarie
     m = t.match(
-      /(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+,\d{2})\s+(\d+,\d{2})\s+(\d+)(?!\d)/,
+      /(?:\d+\s+){1,}(\d+)\s+(\d+,\d{2})\s+(\d+,\d{2})\s+(\d+)(?!\d)/,
     );
     if (m) {
-      put("ggLav", +m[5]);
-      put("ore", N(m[6]));
-      put("straord", N(m[7]));
+      put("ggLav", +m[1]);
+      put("ore", N(m[2]));
+      put("straord", N(m[3]));
     }
     put(
       "oraria",
@@ -1566,6 +1581,7 @@ function parse2(pg) {
           /(?:Supplementare|Straordinari\w*)\s+(\d+)\s*%\s+(\d+,\d{3,})/i,
         ),
         rt = mo ? N(mo[2]) / (1 + mo[1] / 100) : null;
+      if (mo) put("suppPerc", +mo[1]);
       if (rt == null) {
         mo = t.match(/Maggiorazione[^\n]*?(\d+)\s*%\s+(\d+,\d{3,})/i);
         if (mo) rt = N(mo[2]) / (mo[1] / 100);
@@ -1573,6 +1589,15 @@ function parse2(pg) {
       if (rt) put("oraria", Math.round(rt * 10000) / 10000);
     }
     put("festOre", N(g(/Maggiorazione festivo[^\n]*?([\d.,]+)\s*ORE/i)));
+    put("festPerc", N(g(/Maggiorazione festivo\s+(\d+)\s*%/i)));
+    // paga mensile a giorni (es. "Retribuzione ... 26,00000 GG  1.660,08")
+    m = t.match(
+      /Z00001\s+Retribuzione\s+[\d.]+,\d+\s+(\d+(?:,\d+)?)\s*GG\s+([\d.]+,\d{2})/i,
+    );
+    if (m) {
+      put("retribGG", N(m[1]));
+      put("retrib", N(m[2]));
+    }
     put("ferieGod", N(g(/Ferie godute\s+([\d.,]+)\s*ORE/i)));
     put("impIrpef", N(g(/Imponibile IRPEF\s+([\d.]+,\d{2})/i)));
     put("irpef", N(g(/Ritenute IRPEF\s+([\d.]+,\d{2})/i)));
@@ -1667,6 +1692,10 @@ const GR = [
       "oraria",
       "ggLav",
       "festOre",
+      "suppPerc",
+      "festPerc",
+      "retrib",
+      "retribGG",
     ],
   ],
   ["Ferie", ["ferieGod", "ferieAP", "ferieMat", "ferieGodAnno", "ferieSaldo"]],
