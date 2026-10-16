@@ -17,7 +17,7 @@
     <meta name="apple-mobile-web-app-title" content="Cedolix" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <script>
-      var V = "1.12.6";
+      var V = "1.13.0";
       document.write('<link rel="stylesheet" href="style.css?v=' + V + '">');
     </script>
   </head>
@@ -74,10 +74,6 @@
     </script>
     <script>
       document.write('<script src="app.js?v=' + V + '"><\/script>');
-      if ("serviceWorker" in navigator && /^https?:/.test(location.protocol))
-        window.addEventListener("load", function () {
-          navigator.serviceWorker.register("sw.js").catch(function () {});
-        });
     </script>
   </body>
 </html>

@@ -1,0 +1,1 @@
+Per i prossimi rilasci devi alzare la versione in tre punti: V in index.html, V in sw.js e il nome della cache in sw.js. Il numero mostrato nell’avviso viene dal service worker.

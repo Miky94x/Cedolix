@@ -1,4 +1,4 @@
-const V = "cedolix-1.12.6",
+const V = "cedolix-1.13.0",
   LOCAL = [
     "./",
     "index.html",
@@ -25,8 +25,13 @@ self.addEventListener("install", (e) => {
         await c.addAll(LOCAL);
         await Promise.all(OPT.concat(CDN).map((u) => c.add(u).catch(() => {})));
       })
-      .then(() => self.skipWaiting()),
   );
+});
+// la nuova versione resta in attesa finché l'utente non preme "Aggiorna"
+self.addEventListener("message", (e) => {
+  if (e.data === "skip") self.skipWaiting();
+  else if (e.data === "ver" && e.ports[0])
+    e.ports[0].postMessage(V.replace("cedolix-", ""));
 });
 self.addEventListener("activate", (e) => {
   e.waitUntil(
