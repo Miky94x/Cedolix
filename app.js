@@ -522,7 +522,7 @@ async function doBackup() {
   }
 }
 // versione del lettore PDF: alzala quando cambia parse2, le buste si rileggono da sole
-const PV = 8;
+const PV = 9;
 let rereading = false;
 async function rereadAll() {
   const L = S.pay.filter((p) => p.pdf),
@@ -767,6 +767,8 @@ function bSet() {
 const IC = {
   e: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
   d: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+  o: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
+  x: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
 };
 const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 function turniTab(T) {
@@ -983,7 +985,7 @@ async function viewPdf(id) {
       },
     );
   modal(
-    `<div class="row" style="margin-bottom:12px"><h3 style="margin:0">${lab}</h3><div class="ba"><button class="b s" id="po">Apri</button><button class="b" id="mc">Chiudi</button></div></div><div class="pv" id="pv">Caricamento…</div>`,
+    `<div class="mh"><h3>${lab}</h3><div class="ba"><button type="button" class="ib" id="po" aria-label="Apri in una nuova scheda" title="Apri">${IC.o}</button><button type="button" class="ib" id="mc" aria-label="Chiudi" title="Chiudi">${IC.x}</button></div></div><div class="pv" id="pv">Caricamento…</div>`,
     async (m, close) => {
       m.classList.add("big");
       m.querySelector("#mc").onclick = close;
@@ -1119,7 +1121,7 @@ function detPay(id) {
       return R ? `<div class="card"><h3 class="fh">${tit}</h3>${R}</div>` : "";
     }).join("");
   modal(
-    `<div class="row" style="margin-bottom:12px"><h3 style="margin:0">Dettaglio · ${lab}</h3><div class="ba"><button class="b" id="mc">Chiudi</button></div></div>${simCard(p)}${chkHtml(p)}${html || "<p style='color:var(--mu)'>Nessun dato salvato per questa busta.</p>"}${vociHtml(p)}`,
+    `<div class="mh st"><h3>Dettaglio · ${lab}</h3><div class="ba"><button type="button" class="ib" id="mc" aria-label="Chiudi" title="Chiudi">${IC.x}</button></div></div>${simCard(p)}${chkHtml(p)}${html || "<p style='color:var(--mu)'>Nessun dato salvato per questa busta.</p>"}${vociHtml(p)}`,
     (m, close) => {
       m.querySelector("#mc").onclick = close;
     },
@@ -2079,10 +2081,15 @@ function parseVoci(pg) {
           });
         }
       });
-      while (t.length && /^\*+$/.test(t[0].s)) t.shift();
+      // scarta tutto ciò che precede il codice voce: asterischi e lettere
+      // della scritta verticale nel margine (es. "Modello per procedure ZUCCHETTI")
+      // finiscono sulla stessa riga e non vanno scambiati per il codice
+      const CODE = /^(?:[A-Z]{1,3}\d{3,6}|\d{4,6})$/,
+        ci = t.findIndex((it) => CODE.test(it.s.replace(/^\*+/, "")));
+      if (ci < 0) return;
+      t.splice(0, ci);
       if (t.length < 3) return;
       const code = t[0].s.replace(/^\*+/, "");
-      if (!/^(?:[A-Z]{1,3}\d{3,6}|\d{4,6})$/.test(code)) return;
 
       // Alcuni cedolini (tra cui DIMAR) riportano la trattenuta da terzi
       // come una riga con gli importi "Residuo" e rata, senza una geometria
@@ -2150,7 +2157,7 @@ function parseVoci(pg) {
   return out;
 }
 const isQ = (v) =>
-  v.k === "T" && /terzi|cessione|trattenuta|delegazion|pignorament/i.test(v.d);
+  v.k === "T" && /terzi|cessione|delegazion|pignorament|prestito/i.test(v.d);
 const mIdx = (per) => +per.slice(0, 4) * 12 + +per.slice(5, 7) - 1;
 function quinto(p) {
   const v = p && p.voci && p.voci.find(isQ);
@@ -2182,8 +2189,7 @@ function vQuinto() {
       s.fine == null
         ? "—"
         : cap(MESI[s.fine % 12]) + " " + Math.floor(s.fine / 12);
-  return `<div class="card"><h3 class="fh">Cessione del quinto</h3><div class="grid" style="margin-top:8px"><div class="k"><b>${s.left == null ? "—" : s.left}
-  </b><span>Rate ancora da pagare</span></div><div class="k"><b>${fl}</b><span>Ultima rata</span></div><div class="k"><b>${eur(s.q.rata)}</b><span>Rata mensile</span></div><div class="k"><b>${s.resOra == null ? "—" : eur(s.resOra)}</b><span>Residuo stimato</span></div></div><small style="display:block;color:var(--mu);margin-top:10px"></div>`;
+  return `<div class="card"><h3 class="fh">Cessione del quinto</h3><div class="grid" style="margin-top:8px"><div class="k"><b>${s.left == null ? "—" : s.left}</b><span>Rate ancora da pagare</span></div><div class="k"><b>${fl}</b><span>Ultima rata</span></div><div class="k"><b>${eur(s.q.rata)}</b><span>Rata mensile</span></div><div class="k"><b>${s.resOra == null ? "—" : eur(s.resOra)}</b><span>Residuo stimato</span></div></div><small style="display:block;color:var(--mu);margin-top:10px">Stima dalla busta di ${perLab(s.l.per)}.</small></div>`;
 }
 const r2 = (x) => Math.round(x * 100) / 100;
 function simCard(p) {

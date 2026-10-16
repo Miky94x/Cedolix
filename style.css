@@ -772,3 +772,59 @@ html {
   font-weight: 700;
   line-height: 1;
 }
+
+.mh {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.mh h3 {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mh.st {
+  position: sticky;
+  top: -18px;
+  z-index: 2;
+  margin: -18px -16px 12px;
+  padding: 14px 16px 10px;
+  background: var(--card);
+}
+.ib {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--bd);
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--tx);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ib svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.sheet.big {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.sheet.big .pv {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
