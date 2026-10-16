@@ -821,31 +821,3 @@ input[type="file"] {
   min-height: 0;
   overflow: auto;
 }
-
-.upd {
-  position: fixed;
-  left: 12px;
-  right: 12px;
-  bottom: calc(92px + env(safe-area-inset-bottom, 0px));
-  max-width: 696px;
-  margin: auto;
-  z-index: 95;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 14px;
-  border-radius: 14px;
-  background: var(--card);
-  border: 1px solid var(--ac);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
-}
-.upd small {
-  display: block;
-  color: var(--mu);
-  font-size: 12px;
-}
-.upd .ba .b {
-  flex: none;
-  padding: 8px 12px;
-}
