@@ -763,3 +763,12 @@ html {
 .big.fit {
   white-space: nowrap;
 }
+
+.ey.ex {
+  width: 48px;
+  height: 38px;
+  padding: 0;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+}

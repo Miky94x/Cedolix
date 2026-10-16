@@ -69,6 +69,7 @@ async function boot() {
   applyTema();
   render();
   if (!ro && !S.set.whOk) askWh();
+  autoReread();
   try {
     if (navigator.storage && navigator.storage.persist)
       navigator.storage.persist();
@@ -311,6 +312,7 @@ function vSet() {
 <div class="sec">Dati</div>
 <div class="card"><div class="fr"><div>Ultimo backup<small>Dati e PDF delle buste in un file ZIP</small></div><b id="bl" class="${old ? "neg" : "pos"}" style="font-size:14px">${fdt(s.lastBackup)}</b></div>
 <div class="grid" style="margin-top:10px"><button class="b" id="bk">Esporta backup</button><button class="b s" id="rs">Ripristina</button></div>
+<button class="b s wide" id="rr" style="margin-top:8px">Rileggi buste dai PDF</button>
 <p class="note">Ripristinando, tutti i dati attuali vengono sostituiti.</p><p id="bm" style="margin:8px 0 0"></p></div></div>
 <div class="card ver">Cedolix V${V}</div>`;
 }
@@ -509,6 +511,94 @@ async function doBackup() {
     bmsg("Errore nella creazione del backup.", 1);
   }
 }
+// versione del lettore PDF: alzala quando cambia parse2, le buste si rileggono da sole
+const PV = 1;
+let rereading = false;
+async function rereadAll() {
+  const L = S.pay.filter((p) => p.pdf),
+    r = { ok: 0, ch: 0, ko: 0, nopdf: S.pay.length - L.length };
+  if (rereading || !L.length) return r;
+  rereading = true;
+  try {
+    for (const p of L) {
+      try {
+        const buf = await pdfGet(p.id);
+        if (!buf) {
+          r.ko++;
+          continue;
+        }
+        const R = parse2(await readPdf2(buf)),
+          man = p.man || [];
+        let c = false;
+        for (const [k] of FD) {
+          if (k === "per" || man.includes(k)) continue;
+          const v = R[k];
+          if (v == null || v === "") continue;
+          if (p[k] !== v) {
+            p[k] = v;
+            c = true;
+          }
+        }
+        r.ok++;
+        if (c) r.ch++;
+      } catch (e) {
+        r.ko++;
+      }
+    }
+    if (r.ok) {
+      save();
+      if (tab !== "s") {
+        keep = 1;
+        render();
+      }
+    }
+  } finally {
+    rereading = false;
+  }
+  return r;
+}
+async function autoReread() {
+  if (ro || S.set.parseV === PV) return;
+  if (!S.pay.some((p) => p.pdf)) {
+    S.set.parseV = PV;
+    save();
+    return;
+  }
+  if (typeof pdfjsLib === "undefined") return;
+  const r = await rereadAll();
+  if (r.ok) {
+    S.set.parseV = PV;
+    save();
+    if (r.ch) toast("Buste aggiornate con la nuova lettura (" + r.ch + ").");
+  }
+}
+function askReread() {
+  const n = S.pay.filter((p) => p.pdf).length;
+  if (typeof pdfjsLib === "undefined")
+    return bmsg("Libreria PDF non disponibile (serve la connessione).", 1);
+  if (!n) return bmsg("Nessun PDF conservato da rileggere.", 1);
+  confirmBox(
+    "Rileggere le buste?",
+    `Verranno rilette <b>${n}</b> buste dai PDF salvati. I valori letti sostituiscono quelli salvati, tranne i campi che hai corretto a mano al momento del caricamento. Se vuoi essere al sicuro, esporta prima un backup.`,
+    "Rileggi",
+    async () => {
+      bmsg("Rilettura in corso…");
+      const r = await rereadAll();
+      bmsg(
+        r.ok
+          ? "Rilette " + r.ok + " buste, " + r.ch + " aggiornate ✓" +
+              (r.ko ? " · " + r.ko + " non lette" : "") +
+              (r.nopdf ? " · " + r.nopdf + " senza PDF" : "")
+          : "Nessuna busta riletta.",
+        !r.ok,
+      );
+      if (r.ok) {
+        S.set.parseV = PV;
+        save();
+      }
+    },
+  );
+}
 function pickRestore() {
   const i = document.createElement("input");
   i.type = "file";
@@ -654,6 +744,7 @@ function bSet() {
   };
   $("#bk").onclick = doBackup;
   $("#rs").onclick = pickRestore;
+  $("#rr").onclick = askReread;
 }
 const IC = {
   e: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
@@ -1010,11 +1101,130 @@ function detPay(id) {
       return R ? `<div class="card"><h3 class="fh">${tit}</h3>${R}</div>` : "";
     }).join("");
   modal(
-    `<div class="row" style="margin-bottom:12px"><h3 style="margin:0">Dettaglio · ${lab}</h3><div class="ba"><button class="b" id="mc">Chiudi</button></div></div>${html || "<p style='color:var(--mu)'>Nessun dato salvato per questa busta.</p>"}`,
+    `<div class="row" style="margin-bottom:12px"><h3 style="margin:0">Dettaglio · ${lab}</h3><div class="ba"><button class="b" id="mc">Chiudi</button></div></div>${chkHtml(p)}${html || "<p style='color:var(--mu)'>Nessun dato salvato per questa busta.</p>"}`,
     (m, close) => {
       m.querySelector("#mc").onclick = close;
     },
   );
+}
+const perLab = (per) =>
+  cap(MESI[+per.slice(5, 7) - 1] || "?") + " " + per.slice(0, 4);
+const perPrev = (per) => {
+  const y = +per.slice(0, 4),
+    m = +per.slice(5, 7);
+  return m === 1 ? y - 1 + "-12" : y + "-" + String(m - 1).padStart(2, "0");
+};
+// controlli di coerenza: dentro la busta e con quella del mese prima
+function checkBusta(p) {
+  const out = [],
+    has = (v) => v != null && v !== "",
+    f = (v) => fmt(v),
+    sg = (v) => (v > 0 ? "+" : v < 0 ? "−" : "") + fmt(Math.abs(v)),
+    tol = 0.06,
+    add = (t, d, v) => out.push({ t, d, v });
+  [
+    ["netto", "Netto del mese"],
+    ["lordo", "Totale competenze"],
+    ["tratt", "Totale trattenute"],
+    ["ore", "Ore ordinarie lavorate"],
+  ].forEach(([k, l]) => {
+    if (!has(p[k]))
+      add(l + " non letto", "Apri il PDF e controlla, oppure ricarica la busta");
+  });
+  if (+p.ggLav > 31 || +p.ore > 350)
+    add("Valore fuori scala", "Giorni lavorati " + (p.ggLav ?? "—") + " · ore ordinarie " + (p.ore ?? "—"));
+  if (has(p.lordo) && has(p.tratt) && has(p.netto)) {
+    const c = p.lordo - p.tratt,
+      d = c - p.netto;
+    if (Math.abs(d) > 1)
+      add(
+        "Competenze − trattenute ≠ netto",
+        "competenze " + f(p.lordo) + " − trattenute " + f(p.tratt) + " = " + f(c) + " · netto in busta " + f(p.netto),
+        sg(d) + " €",
+      );
+  }
+  const rat = (nome, ap, mat, god, sal) => {
+    if (![ap, mat, god, sal].every(has)) return;
+    const c = ap + mat - god,
+      d = c - sal;
+    if (Math.abs(d) > tol)
+      add(
+        nome + ": il saldo non torna",
+        "residuo AP " + f(ap) + " + maturato " + f(mat) + " − goduto " + f(god) + " = " + f(c) + " · saldo in busta " + f(sal),
+        sg(d) + " ore",
+      );
+  };
+  rat("Ferie", p.ferieAP, p.ferieMat, p.ferieGodAnno, p.ferieSaldo);
+  rat("Ex-festività", p.exAP, p.exMat, p.exGodAnno, p.exSaldo);
+  rat("Permessi", p.permAP, p.permMat, p.permGodAnno, p.permSaldo);
+  if ([p.straord, p.oraria, p.straordImp, p.suppPerc].every(has)) {
+    const sp = 1 + p.suppPerc / 100,
+      fp = (has(p.festPerc) ? p.festPerc : 30) / 100,
+      c = p.straord * p.oraria * sp + (p.festOre || 0) * p.oraria * fp,
+      d = c - p.straordImp;
+    if (Math.abs(d) > 0.15)
+      add(
+        "Importo straordinari e maggiorazioni non torna",
+        "ore × paga oraria × maggiorazioni = " + f(c) + " € · in busta " + f(p.straordImp) + " €",
+        sg(d) + " €",
+      );
+  }
+  const pv = p.per && S.pay.find((q) => q.per === perPrev(p.per));
+  if (pv) {
+    const L = perLab(pv.per),
+      same = pv.per.slice(0, 4) === p.per.slice(0, 4);
+    [
+      ["azienda", "Azienda"],
+      ["hire", "Data di assunzione"],
+      ["liv", "Livello"],
+      ["qual", "Qualifica"],
+    ].forEach(([k, l]) => {
+      if (has(p[k]) && has(pv[k]) && String(p[k]) !== String(pv[k]))
+        add(l + " diverso dalla busta di " + L, pv[k] + " → " + p[k]);
+    });
+    if (has(p.pt) && has(pv.pt) && Math.abs(p.pt - pv.pt) > 0.01)
+      add("Part time diverso dalla busta di " + L, f(pv.pt) + "% → " + f(p.pt) + "%");
+    const cum = (nome, k, km) => {
+      if (!has(p[k]) || (same && !has(pv[k]))) return;
+      const base = same ? pv[k] : 0,
+        g = p[km] || 0,
+        d = base + g - p[k];
+      if (Math.abs(d) > tol)
+        add(
+          nome + " godute da inizio anno non tornano",
+          "busta di " + L + ": " + f(base) + " + godute nel mese " + f(g) + " = " + f(base + g) + " · in busta " + f(p[k]),
+          sg(d) + " ore",
+        );
+    };
+    cum("Ferie", "ferieGodAnno", "ferieGod");
+    cum("Ex-festività", "exGodAnno", "exGod");
+    if (same) {
+      [
+        ["Ferie", "ferieAP", "ferieMat"],
+        ["Ex-festività", "exAP", "exMat"],
+      ].forEach(([n, ap, mat]) => {
+        if (has(p[ap]) && has(pv[ap]) && Math.abs(p[ap] - pv[ap]) > tol)
+          add(n + ": residuo AP cambiato", L + " " + f(pv[ap]) + " → " + f(p[ap]) + " ore");
+        if (has(p[mat]) && has(pv[mat]) && p[mat] < pv[mat] - tol)
+          add(n + ": maturato diminuito", L + " " + f(pv[mat]) + " → " + f(p[mat]) + " ore");
+      });
+      [
+        ["progImpInps", "Progressivo imponibile INPS"],
+        ["progImpIrpef", "Progressivo imponibile IRPEF"],
+        ["progIrpef", "IRPEF pagata da inizio anno"],
+        ["tfrAnno", "TFR quota anno"],
+      ].forEach(([k, l]) => {
+        if (has(p[k]) && has(pv[k]) && p[k] < pv[k] - 0.01)
+          add(l + " diminuito rispetto a " + L, f(pv[k]) + " → " + f(p[k]) + " €");
+      });
+    }
+  }
+  return out;
+}
+function chkHtml(p) {
+  const R = checkBusta(p);
+  if (!R.length) return "";
+  return `<div class="card"><h3 class="fh neg">Da controllare (${R.length})</h3>${R.map((x) => `<div class="fr"><div>${esc(x.t)}${x.d ? `<small>${esc(x.d)}</small>` : ""}</div>${x.v ? `<b class="neg">${esc(x.v)}</b>` : ""}</div>`).join("")}<p style="color:var(--mu);font-size:13px;margin:8px 0 0">Può essere un errore di lettura del PDF e non della busta: controlla i valori qui sotto, oppure ricarica il PDF.</p></div>`;
 }
 const opn = new Set(),
   op = (k) => (opn.has(k) ? " open" : "");
@@ -1034,7 +1244,7 @@ function payList(P) {
         `<details class='card cl' data-c='y${y}'${op("y" + y)}><summary><span><b>${/^\d{4}$/.test(y) ? "Buste paga " + y : y}</b><small style='color:var(--mu);display:block'>${L.length} ${L.length === 1 ? "busta" : "buste"}${tot ? " · netto " + fmt(tot) + " €" : ""}</small></span></summary>` +
         L.map(
           (p) =>
-            `<div class='r'><div class='d'><b>${p.per ? cap(MESI[+p.per.slice(5, 7) - 1] || "?") : "Periodo ?"}</b><small>Netto ${p.netto ? fmt(p.netto) + " €" : "—"} · Lordo ${p.lordo ? fmt(p.lordo) + " €" : "—"} · Ore ${p.ore ? fmtH(p.ore) : "—"}</small></div><div class='ba'><button class='b s ey' data-det='${p.id}' aria-label='Dettaglio busta' title='Dettaglio'>${IC.d}</button><button class='b s ey' data-view='${p.id}' aria-label='Apri busta'${p.pdf ? "" : " style='opacity:.5'"}>${IC.e}</button><button class='b s' data-del='${p.id}' aria-label='Elimina'>✕</button></div></div>`,
+            `<div class='r'><div class='d'><b>${p.per ? cap(MESI[+p.per.slice(5, 7) - 1] || "?") : "Periodo ?"}</b><small>Netto ${p.netto ? fmt(p.netto) + " €" : "—"} · Lordo ${p.lordo ? fmt(p.lordo) + " €" : "—"} · Ore ${p.ore ? fmtH(p.ore) : "—"}</small></div><div class='ba'>${checkBusta(p).length ? `<button class='b dng ey ex' data-det='${p.id}' aria-label='Dettaglio busta: ci sono controlli da verificare' title='Controlli da verificare'>!</button>` : `<button class='b s ey' data-det='${p.id}' aria-label='Dettaglio busta' title='Dettaglio'>${IC.d}</button>`}<button class='b s ey' data-view='${p.id}' aria-label='Apri busta'${p.pdf ? "" : " style='opacity:.5'"}>${IC.e}</button><button class='b s' data-del='${p.id}' aria-label='Elimina'>✕</button></div></div>`,
         ).join("") +
         "</details>"
       );
@@ -1470,8 +1680,8 @@ const mn = (s) => s.replace(/\s+/g, "").toLowerCase(),
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
 async function readPdf2(f) {
-  const pdf = await pdfjsLib.getDocument({ data: await f.arrayBuffer() })
-      .promise,
+  const buf = f.arrayBuffer ? await f.arrayBuffer() : f.slice(0),
+    pdf = await pdfjsLib.getDocument({ data: buf }).promise,
     pg = [];
   for (let i = 1; i <= pdf.numPages; i++) {
     const c = await (await pdf.getPage(i)).getTextContent(),
@@ -1802,6 +2012,16 @@ function uploadModal(f) {
                   : v.includes(",")
                     ? num(v)
                     : parseFloat(v);
+            });
+            // campi che l'utente ha corretto a mano: la rilettura automatica non li tocca
+            o.man = FD.map((x) => x[0]).filter((k) => {
+              if (k === "per") return false;
+              const a = has(k) ? R[k] : null,
+                b = o[k] === "" || o[k] == null ? null : o[k];
+              if (a == null || b == null) return a != b;
+              return TXT.includes(k)
+                ? String(a) !== String(b)
+                : Math.abs(a - b) > 1e-9;
             });
             if (!/^\d{4}-\d{2}$/.test(o.per || "")) {
               u2.querySelector("#uer").textContent =
