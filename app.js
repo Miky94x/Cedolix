@@ -1058,14 +1058,18 @@ function simOre(y, m) {
   const D = meseDati(y, m),
     sp = 1 + (l.suppPerc || 35) / 100,
     fp = (l.festPerc || 30) / 100,
-    fisso = !!(l.retribGG && l.retrib > 0),
+    // parte da 0 e cresce con le ore segnate; ordinarie fino alle ore previste del periodo
     ord = Math.max(0, D.st.w + D.st.fe - D.supp),
-    po = fisso ? l.retrib : ord * hr,
+    po = ord * hr,
     ps = D.supp * hr * sp,
     pf = D.fest * hr * fp,
-    pa = fisso ? Math.max(0, l.lordo - l.retrib - (l.straordImp || 0)) : 0,
+    // altre competenze fisse della busta (es. indennità): maturano in proporzione alle ore previste
+    base = l.retribGG && l.retrib > 0 ? l.retrib : l.ore ? hr * (l.ore + (l.ferieGod || 0) + (l.exGod || 0)) : null,
+    paFull = base == null ? 0 : Math.max(0, l.lordo - base - (l.straordImp || 0)),
+    prog = D.st.e ? Math.min(1, (D.st.w + D.st.fe) / D.st.e) : 0,
+    pa = paFull * prog,
     lordo = po + ps + pf + pa;
-  return { l, hr, D, ord, po, ps, pf, pa, sp, fp, fisso, lordo, netto: (lordo * l.netto) / l.lordo };
+  return { l, hr, D, ord, po, ps, pf, pa, paFull, prog, sp, fp, lordo, netto: (lordo * l.netto) / l.lordo };
 }
 function vSim(pm, PP, dm) {
   const s = simOre(pm.getFullYear(), pm.getMonth()),
@@ -1076,10 +1080,10 @@ function vSim(pm, PP, dm) {
   if (!s)
     return `<div class="card">${tit}<p style="color:var(--mu);margin:10px 0 0">Carica una busta paga per calcolare la paga oraria.</p></div>`;
   return `<div class="card">${tit}
-${s.fisso ? r("Retribuzione mensile", eur(s.po), "importo fisso · " + fmt(s.l.retribGG) + " giorni") : r("Ore ordinarie", eur(s.po), fmtH(s.ord) + " × " + fmt(s.hr) + " €/h")}
+${r("Ore ordinarie", eur(s.po), fmtH(s.ord) + " su " + fmtH(s.D.st.e) + " previste × " + fmt(s.hr) + " €/h")}
 ${r("Suppl./straord. " + Math.round((s.sp - 1) * 100) + "%", eur(s.ps), fmtH(s.D.supp) + " × " + fmt(s.hr * s.sp) + " €/h")}
 ${r("Maggiorazione festivo " + Math.round(s.fp * 100) + "%", eur(s.pf), fmtH(s.D.fest) + " × " + fmt(s.hr * s.fp) + " €/h")}
-${s.pa > 0.5 ? r("Altre competenze fisse", eur(s.pa), "come nella busta di " + s.l.per) : ""}
+${s.paFull > 0 ? r("Altre competenze fisse", eur(s.pa), "come nella busta di " + s.l.per + " · " + Math.round(s.prog * 100) + "% del mese") : ""}
 ${r("Lordo stimato", eur(s.lordo), "", "tt")}
 ${r("Netto stimato", "≈ " + eur(s.netto), "stesso rapporto netto/lordo della busta di " + s.l.per, "tt")}</div>`;
 }
@@ -1125,13 +1129,25 @@ function vHome() {
           ? fmtH(x.h) + " registrate"
           : "Nessuna ora registrata";
   const nd = nh ? new Date(nh[0]) : null;
-  return `<div class="hero"><small>${GG[n.getDay()]} ${n.getDate()} ${MESI[m]} ${y}</small><small style="display:block;margin-top:12px">${hlab}</small><div class="big">${hbig}</div><div class="bar"><i style="width:${pct}%"></i></div><small>${hsub}</small></div>
+  return `<div class="hero"><small>${GG[n.getDay()]} ${n.getDate()} ${MESI[m]} ${y}</small><small style="display:block;margin-top:12px">${hlab}</small><div class="big fit">${hbig}</div><div class="bar"><i style="width:${pct}%"></i></div><small>${hsub}</small></div>
 ${vBk()}
 <div class="card"><div class="row"><b>Oggi</b><span style="color:var(--mu);text-align:right">${stt}</span></div>${x.turni && !x.t ? turniTab(x.turni) : ""}</div>
 <div class="card"><div class="fr" id="goc" style="cursor:pointer"><div>Ore di contratto</div><b style="color:var(--ac)">${wh() ? fmt(wh()) + " ore" : "—"}</b></div><div class="fr"><div>Data assunzione</div><b>${S.set.hire ? esc(S.set.hire.split("-").reverse().join("/")) : "—"}</b></div><div class="grid" style="margin-top:10px"><div class="k"><b>${a ? a.y + " a " + a.m + " m " + a.d + " g" : "—"}</b><span>Anzianità</span></div><div class="k"><b>${nd ? nd.getDate() + " " + MESI[nd.getMonth()].slice(0, 3) : "—"}</b><span>Prossimo festivo${nh ? ": " + nh[1] : ""}</span></div></div></div>
 ${vSim(pm, PP, dm)}`;
 }
+function fitBig() {
+  document.querySelectorAll(".big.fit").forEach((e) => {
+    e.style.fontSize = "";
+    let f = parseFloat(getComputedStyle(e).fontSize);
+    while (e.scrollWidth > e.clientWidth && f > 12) {
+      f -= 1;
+      e.style.fontSize = f + "px";
+    }
+  });
+}
+window.addEventListener("resize", fitBig);
 function bHome() {
+  fitBig();
   if ($("#gob"))
     $("#gob").onclick = () => {
       tab = "s";

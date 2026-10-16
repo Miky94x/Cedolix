@@ -759,3 +759,7 @@ html {
   color: var(--mu);
   font-size: 13px;
 }
+
+.big.fit {
+  white-space: nowrap;
+}
