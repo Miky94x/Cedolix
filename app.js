@@ -99,8 +99,18 @@ const iso = (d) =>
   String(d.getMonth() + 1).padStart(2, "0") +
   "-" +
   String(d.getDate()).padStart(2, "0");
-const fmt1 = (n) => (Math.round(n * 10) / 10).toString().replace(".", ","),
-  fmt = (n) => (Math.round(n * 100) / 100).toString().replace(".", ",");
+const fmt1 = (n) =>
+    Number.isFinite(Number(n))
+      ? (Math.round(Number(n) * 10) / 10).toLocaleString("it-IT", {
+          maximumFractionDigits: 1,
+        })
+      : "—",
+  fmt = (n) =>
+    Number.isFinite(Number(n))
+      ? (Math.round(Number(n) * 100) / 100).toLocaleString("it-IT", {
+          maximumFractionDigits: 2,
+        })
+      : "—";
 const fmtH = (n) => {
   if (n == null || isNaN(n)) return "—";
   const t = Math.round(Math.abs(n) * 60),
@@ -1988,7 +1998,10 @@ function parse2(pg) {
   // Fallback testuale: alcuni PDF DIMAR non espongono la riga 003100
   // con una geometria di colonne affidabile, quindi parseVoci può saltarla.
   // Cerchiamo la dicitura nel testo completo estratto da PDF.js.
-  const testoCompleto = pg.map((P) => P.txt || "").join(" ").replace(/\s+/g, " ");
+  const testoCompleto = pg
+    .map((P) => P.txt || "")
+    .join(" ")
+    .replace(/\s+/g, " ");
   const mTerzi = testoCompleto.match(
     /Trattenuta\s+da\s+Terzi[\s\S]{0,80}?Residuo\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})/i,
   );
@@ -2074,7 +2087,10 @@ function parseVoci(pg) {
       // Alcuni cedolini (tra cui DIMAR) riportano la trattenuta da terzi
       // come una riga con gli importi "Residuo" e rata, senza una geometria
       // PDF affidabile per associare i numeri alle colonne.
-      const rowText = t.map((it) => it.s).join(" ").replace(/\s+/g, " ");
+      const rowText = t
+        .map((it) => it.s)
+        .join(" ")
+        .replace(/\s+/g, " ");
       const terzi = rowText.match(
         /Trattenuta\s+da\s+Terzi\s+Residuo\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})/i,
       );
@@ -2166,7 +2182,8 @@ function vQuinto() {
       s.fine == null
         ? "—"
         : cap(MESI[s.fine % 12]) + " " + Math.floor(s.fine / 12);
-  return `<div class="card"><h3 class="fh">Cessione del quinto</h3><div class="grid" style="margin-top:8px"><div class="k"><b>${s.left == null ? "—" : s.left}</b><span>Rate ancora da pagare</span></div><div class="k"><b>${fl}</b><span>Ultima rata</span></div><div class="k"><b>${eur(s.q.rata)}</b><span>Rata mensile</span></div><div class="k"><b>${s.resOra == null ? "—" : eur(s.resOra)}</b><span>Residuo stimato</span></div></div><small style="display:block;color:var(--mu);margin-top:10px">Dalla voce «${esc(s.q.d)}» della busta di ${perLab(s.l.per)}${s.n != null ? ": residuo " + eur(s.q.res) + " ÷ rata = " + s.n + " rate, compresa quella del mese" : ""}. È una stima: la busta non riporta la data di fine.</small></div>`;
+  return `<div class="card"><h3 class="fh">Cessione del quinto</h3><div class="grid" style="margin-top:8px"><div class="k"><b>${s.left == null ? "—" : s.left}
+  </b><span>Rate ancora da pagare</span></div><div class="k"><b>${fl}</b><span>Ultima rata</span></div><div class="k"><b>${eur(s.q.rata)}</b><span>Rata mensile</span></div><div class="k"><b>${s.resOra == null ? "—" : eur(s.resOra)}</b><span>Residuo stimato</span></div></div><small style="display:block;color:var(--mu);margin-top:10px"></div>`;
 }
 const r2 = (x) => Math.round(x * 100) / 100;
 function simCard(p) {
