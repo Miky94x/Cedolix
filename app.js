@@ -512,7 +512,7 @@ async function doBackup() {
   }
 }
 // versione del lettore PDF: alzala quando cambia parse2, le buste si rileggono da sole
-const PV = 1;
+const PV = 2;
 let rereading = false;
 async function rereadAll() {
   const L = S.pay.filter((p) => p.pdf),
@@ -1291,7 +1291,7 @@ function vSim(pm, PP, dm) {
     return `<div class="card">${tit}<p style="color:var(--mu);margin:10px 0 0">Carica una busta paga per calcolare la paga oraria.</p></div>`;
   return `<div class="card">${tit}
 ${r("Ore ordinarie", eur(s.po), fmtH(s.ord) + " su " + fmtH(s.D.st.e) + " previste × " + fmt(s.hr) + " €/h")}
-${r("Suppl./straord. " + Math.round((s.sp - 1) * 100) + "%", eur(s.ps), fmtH(s.D.supp) + " × " + fmt(s.hr * s.sp) + " €/h")}
+${r("Suppl./straord. " + fmt1((s.sp - 1) * 100) + "%", eur(s.ps), fmtH(s.D.supp) + " × " + fmt(s.hr * s.sp) + " €/h")}
 ${r("Maggiorazione festivo " + Math.round(s.fp * 100) + "%", eur(s.pf), fmtH(s.D.fest) + " × " + fmt(s.hr * s.fp) + " €/h")}
 ${s.paFull > 0 ? r("Altre competenze fisse", eur(s.pa), "come nella busta di " + s.l.per + " · " + Math.round(s.prog * 100) + "% del mese") : ""}
 ${r("Lordo stimato", eur(s.lordo), "", "tt")}
@@ -1457,7 +1457,7 @@ function checkMese(y, m) {
   const D = meseDati(y, m);
   return [
     ["Ore lavorate", D.st.w, (p.ore || 0) + (p.straord || 0)],
-    ["Ore suppl./straord. " + (p.suppPerc || 35) + "%", D.supp, p.straord || 0],
+    ["Ore suppl./straord. " + fmt1(p.suppPerc || 35) + "%", D.supp, p.straord || 0],
     ["Ore festive " + (p.festPerc || 30) + "%", D.fest, p.festOre || 0],
     ["Ferie godute", D.fer, p.ferieGod || 0],
     ["Permessi", D.perm, p.exGod || 0],
@@ -1807,7 +1807,20 @@ function parse2(pg) {
           /(?:Supplementare|Straordinari\w*)\s+(\d+)\s*%\s+(\d+,\d{3,})/i,
         ),
         rt = mo ? N(mo[2]) / (1 + mo[1] / 100) : null;
-      if (mo) put("suppPerc", +mo[1]);
+      {
+        // più righe (es. Straordinario 30% e Supplementare 35%): percentuale media pesata sulle ore
+        let so = 0,
+          sp = 0;
+        for (const x of t.matchAll(
+          /(?:Supplementare|Straordinari\w*)\s+(\d+)\s*%\s+(\d+,\d{3,})\s+([\d.]+,\d+)\s*ORE/gi,
+        )) {
+          const o = N(x[3]);
+          so += o;
+          sp += o * +x[1];
+        }
+        if (so > 0) put("suppPerc", Math.round((sp / so) * 1e4) / 1e4);
+        else if (mo) put("suppPerc", +mo[1]);
+      }
       if (rt == null) {
         mo = t.match(/Maggiorazione[^\n]*?(\d+)\s*%\s+(\d+,\d{3,})/i);
         if (mo) rt = N(mo[2]) / (mo[1] / 100);
