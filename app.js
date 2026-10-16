@@ -512,7 +512,7 @@ async function doBackup() {
   }
 }
 // versione del lettore PDF: alzala quando cambia parse2, le buste si rileggono da sole
-const PV = 5;
+const PV = 8;
 let rereading = false;
 async function rereadAll() {
   const L = S.pay.filter((p) => p.pdf),
@@ -1985,6 +1985,25 @@ function parse2(pg) {
     put("progIrpef", N(near(P, "irpefpagata", "b")));
   });
   const VC = parseVoci(pg);
+  // Fallback testuale: alcuni PDF DIMAR non espongono la riga 003100
+  // con una geometria di colonne affidabile, quindi parseVoci può saltarla.
+  // Cerchiamo la dicitura nel testo completo estratto da PDF.js.
+  const testoCompleto = pg.map((P) => P.txt || "").join(" ").replace(/\s+/g, " ");
+  const mTerzi = testoCompleto.match(
+    /Trattenuta\s+da\s+Terzi[\s\S]{0,80}?Residuo\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})/i,
+  );
+  if (mTerzi && !VC.some(isQ)) {
+    VC.push({
+      c: "003100",
+      d: "Trattenuta da Terzi",
+      q: null,
+      u: "",
+      r: N(mTerzi[1]),
+      i: N(mTerzi[2]),
+      k: "T",
+      m: 0,
+    });
+  }
   if (VC.length) {
     R.voci = VC;
     const sum = (a) => a.reduce((z, v) => z + (v.i || 0), 0),
@@ -2029,22 +2048,50 @@ function parseVoci(pg) {
     (P.ln || []).forEach((row) => {
       const t = [];
       row.forEach((it) => {
-        const m = it.s.match(
-          /^(.*[^\d\s.,()-].*?)\s+(-?[\d.]+,\d+(?:\s*(?:ORE|GG|%))?)$/,
-        );
-        if (m) {
-          const f = m[1].length / it.s.length,
-            w = it.w || 0;
-          t.push(
-            { ...it, s: m[1], w: w * f },
-            { ...it, s: m[2], x: it.x + w * f, w: w * (1 - f) },
-          );
-        } else t.push(it);
+        // PDF.js a volte restituisce l'intera voce in un solo elemento
+        // (es. "003100 Trattenuta da Terzi Residuo 28.420,00 245,00").
+        // Tokenizziamo mantenendo una posizione X approssimata, così il codice
+        // della voce e gli importi restano riconoscibili anche in quel caso.
+        const re = /\S+/g;
+        let m;
+        while ((m = re.exec(it.s))) {
+          const w = it.w || 0,
+            f = m.index / Math.max(1, it.s.length),
+            fw = m[0].length / Math.max(1, it.s.length);
+          t.push({
+            ...it,
+            s: m[0],
+            x: it.x + w * f,
+            w: w * fw,
+          });
+        }
       });
       while (t.length && /^\*+$/.test(t[0].s)) t.shift();
       if (t.length < 3) return;
       const code = t[0].s.replace(/^\*+/, "");
       if (!/^(?:[A-Z]{1,3}\d{3,6}|\d{4,6})$/.test(code)) return;
+
+      // Alcuni cedolini (tra cui DIMAR) riportano la trattenuta da terzi
+      // come una riga con gli importi "Residuo" e rata, senza una geometria
+      // PDF affidabile per associare i numeri alle colonne.
+      const rowText = t.map((it) => it.s).join(" ").replace(/\s+/g, " ");
+      const terzi = rowText.match(
+        /Trattenuta\s+da\s+Terzi\s+Residuo\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})/i,
+      );
+      if (terzi) {
+        out.push({
+          c: code,
+          d: "Trattenuta da Terzi",
+          q: null,
+          u: "",
+          r: N(terzi[1]),
+          i: N(terzi[2]),
+          k: "T",
+          m: 0,
+        });
+        return;
+      }
+
       const D = [],
         V = [];
       let par = false;
