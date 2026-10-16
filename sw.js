@@ -1,9 +1,14 @@
-const V = "cedolix-1.13.0",
+importScripts("version.js");
+const V = "cedolix-" + APP_VERSION,
   LOCAL = [
     "./",
     "index.html",
     "style.css",
+    "version.js",
+    "core.js",
+    "store.js",
     "app.js",
+    "update.js",
     "manifest.webmanifest",
     "icon-192.png",
     "icon-512.png",

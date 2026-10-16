@@ -32,6 +32,8 @@ h2 {
   font-size: 20px;
 }
 .card {
+  min-width: 0;
+  overflow: hidden;
   background: var(--card);
   border: 1px solid var(--bd);
   border-radius: 12px;
@@ -97,6 +99,7 @@ select {
   font-size: 16px;
 }
 html {
+  background: var(--bg);
   touch-action: manipulation;
   -webkit-text-size-adjust: 100%;
 }
@@ -124,6 +127,7 @@ label {
   justify-content: space-between;
 }
 pre {
+  max-width: 100%;
   white-space: pre-wrap;
   max-height: 200px;
   overflow: auto;
@@ -474,16 +478,8 @@ input[type="file"] {
   min-width: 0;
   font-size: 14px;
 }
-.card {
-  min-width: 0;
-  overflow: hidden;
-}
 .fg > div {
   min-width: 0;
-}
-pre {
-  max-width: 100%;
-  overflow-x: auto;
 }
 
 .k.kc {
@@ -566,9 +562,6 @@ pre {
   border-radius: 10px;
   border: 1px solid var(--bd);
   flex: none;
-}
-html {
-  background: var(--bg);
 }
 
 .cl > summary {
