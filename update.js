@@ -13,17 +13,20 @@
     location.reload();
   });
 
-  sw.register("sw.js")
+  sw.register("sw.js", { updateViaCache: "none" })
     .then((reg) => {
       const chk = () => reg.update().catch(warn);
 
-      // Controlla subito se è disponibile una nuova versione
+      // Controllo immediato all'apertura
       chk();
 
-      // Ricontrolla quando l'utente torna nell'app
+      // Controllo quando l'app torna in primo piano
       document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible") chk();
       });
+
+      // Controllo anche quando la pagina torna online
+      window.addEventListener("online", chk);
     })
     .catch(warn);
 })();
