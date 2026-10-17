@@ -123,7 +123,8 @@ function monthStats(y, m) {
     e = 0,
     fe = 0,
     ex = 0,
-    hol = 0;
+    hol = 0,
+    hf = 0;
   for (let i = 0; i < n; i++) {
     const d = new Date(P.s.getFullYear(), P.s.getMonth(), P.s.getDate() + i),
       k = iso(d),
@@ -135,9 +136,15 @@ function monthStats(y, m) {
     if (x.t === "ferie" || x.t === "malattia" || x.t === "permesso") {
       fe += (x.t === "ferie" || x.t === "permesso") && x.h != null && x.h !== "" ? +x.h : std();
       if (x.t === "ferie") ex++;
+    } else if (h[yy][k] && d.getDay() !== 0) {
+      // festivo lun-sab: non lavorato vale ore settimanali / 6; se lavorato
+      // (festività non goduta) le ore vere restano e si aggiunge un altro giorno
+      fe += wh() / 6;
+      hf += wh() / 6;
+      w += dayH(x);
     } else w += dayH(x);
   }
-  return { w, e, fe, ex, hol, bal: w + fe - e };
+  return { w, e, fe, ex, hol, hf, bal: w + fe - e };
 }
 function ferie() {
   const l = S.pay
@@ -493,6 +500,16 @@ function meseDati(y, m) {
       );
       cum = 0;
       cap = (wh() * n) / 7;
+      // festivo non lavorato (lun-ven e domenica; il sabato no): abbassa il tetto
+      // ordinario dell'intera settimana, anche se cade dopo i giorni lavorati
+      for (let i = 0; i < n; i++) {
+        const z = new Date(d.getFullYear(), d.getMonth(), d.getDate() + i),
+          zk = iso(z),
+          zy = z.getFullYear(),
+          zx = S.days[zk] || {};
+        H[zy] = H[zy] || holidays(zy);
+        if (H[zy][zk] && z.getDay() !== 6 && z.getDay() !== 0 && !zx.t && !dayH(zx)) cum += wh() / 6;
+      }
     }
     const o = x.h != null && x.h !== "" ? +x.h : std();
     if (x.t === "ferie") {
@@ -510,11 +527,15 @@ function meseDati(y, m) {
         const ord = Math.min(h, Math.max(0, cap - cum));
         supp += h - ord;
         cum += h;
-        if (H[yy][k] || d.getDay() === 0) fest += ord;
+        // il sabato festivo lavorato non prende la maggiorazione festivo (come in busta)
+        if ((H[yy][k] && d.getDay() !== 6) || d.getDay() === 0) fest += ord;
       }
     }
   }
-  return { st, fer: R(fer), perm: R(perm), fest: R(fest), supp: R(supp) };
+  // suppl./straord.: ore effettive del periodo (assenze e festivi non lavorati inclusi)
+  // oltre le ore previste; le settimane sotto le 30h compensano quelle sopra
+  const suppP = Math.max(0, st.w + st.fe - st.e);
+  return { st, fer: R(fer), perm: R(perm), fest: R(fest), supp: R(suppP) };
 }
 function bustaMese(y, m) {
   const k = y + "-" + String(m + 1).padStart(2, "0");
@@ -529,7 +550,7 @@ function checkMese(y, m) {
     // del periodo; le ore realmente dovute sono previste − assenze, più le suppl./straord.
     [
       "Ore lavorate",
-      D.st.w,
+      D.st.w + D.st.hf,
       p.retribGG && p.retrib > 0
         ? D.st.e - (p.ferieGod || 0) - (p.exGod || 0) + (p.straord || 0)
         : (p.ore || 0) + (p.straord || 0),
