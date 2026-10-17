@@ -542,6 +542,17 @@ function bustaMese(y, m) {
   const k = y + "-" + String(m + 1).padStart(2, "0");
   return S.pay.find((q) => q.per === k) || null;
 }
+// ore godute nel mese: dalla voce della busta; se manca (alcune buste riportano solo i
+// ratei), le ricavo dal "goduto da inizio anno" meno quello della busta del mese prima
+function godMese(p, k) {
+  if (p[k + "God"] != null && p[k + "God"] !== "") return +p[k + "God"];
+  const a = p[k + "GodAnno"];
+  if (a == null || a === "") return 0;
+  const pv = p.per && S.pay.find((q) => q.per === perPrev(p.per)),
+    same = pv && pv.per.slice(0, 4) === p.per.slice(0, 4),
+    base = same && pv[k + "GodAnno"] != null ? +pv[k + "GodAnno"] : 0;
+  return Math.max(0, a - base);
+}
 function checkMese(y, m) {
   const p = bustaMese(y, m);
   if (!p) return null;
@@ -553,7 +564,7 @@ function checkMese(y, m) {
       "Ore lavorate",
       D.st.w + D.st.hf,
       p.retribGG && p.retrib > 0
-        ? D.st.e - (p.ferieGod || 0) - (p.exGod || 0) + (p.straord || 0)
+        ? D.st.e - godMese(p, "ferie") - godMese(p, "ex") + (p.straord || 0)
         : (p.ore || 0) + (p.straord || 0),
     ],
     [
@@ -562,8 +573,8 @@ function checkMese(y, m) {
       p.straord || 0,
     ],
     ["Ore festive " + (p.festPerc || 30) + "%", D.fest, p.festOre || 0],
-    ["Ferie godute", D.fer, p.ferieGod || 0],
-    ["Permessi", D.perm, p.exGod || 0],
+    ["Ferie godute", D.fer, godMese(p, "ferie")],
+    ["Permessi", D.perm, godMese(p, "ex")],
   ].map(([lab, a, b]) => ({
     lab,
     a,
