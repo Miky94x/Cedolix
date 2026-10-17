@@ -12,9 +12,15 @@
     reloading = true;
     location.reload();
   });
+
   sw.register("sw.js")
     .then((reg) => {
       const chk = () => reg.update().catch(warn);
+
+      // Controlla subito se è disponibile una nuova versione
+      chk();
+
+      // Ricontrolla quando l'utente torna nell'app
       document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible") chk();
       });
