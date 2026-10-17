@@ -528,7 +528,8 @@ function meseDati(y, m) {
         supp += h - ord;
         cum += h;
         // il sabato festivo lavorato non prende la maggiorazione festivo (come in busta)
-        if ((H[yy][k] && d.getDay() !== 6) || d.getDay() === 0) fest += ord;
+        // il santo patrono (festa locale) vale come giorno in più ma senza maggiorazione festivo
+        if ((H[yy][k] && H[yy][k] !== "Santo Patrono" && d.getDay() !== 6) || d.getDay() === 0) fest += ord;
       }
     }
   }
