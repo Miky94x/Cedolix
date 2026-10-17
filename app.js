@@ -89,6 +89,7 @@ function vSet() {
 <div class="card"><div class="fr"><div>Ultimo backup<small>Dati e PDF delle buste in un file ZIP</small></div><b id="bl" class="${old ? "neg" : "pos"}" style="font-size:14px">${fdt(s.lastBackup)}</b></div>
 <div class="grid" style="margin-top:10px"><button class="b" id="bk">Esporta backup</button><button class="b s" id="rs">Ripristina</button></div>
 <button class="b s wide" id="rr" style="margin-top:8px">Rileggi buste dai PDF</button>
+<button class="b s wide" id="tp" style="margin-top:8px">Importa timbrature (PDF)</button>
 <p class="note">Ripristinando, tutti i dati attuali vengono sostituiti.</p><p id="bm" style="margin:8px 0 0"></p></div></div>
 <div class="card ver">Cedolix V${V}</div>`;
 }
@@ -399,6 +400,90 @@ function askReread() {
     },
   );
 }
+function parseTim(pg) {
+  const txt = pg.map((p) => p.txt).join("\n"),
+    re = /Giorno:\s*(\d{2})\/(\d{2})\/(\d{4})|\b(\d{2}):(\d{2})\s+(Entrata|Uscita)/gi,
+    hm = (x) => {
+      x = ((x % 1440) + 1440) % 1440;
+      return String(Math.floor(x / 60)).padStart(2, "0") + ":" + String(x % 60).padStart(2, "0");
+    },
+    D = {};
+  let k = null, open = null, bad = 0, m;
+  while ((m = re.exec(txt))) {
+    if (m[1]) { k = m[3] + "-" + m[2] + "-" + m[1]; continue; }
+    if (!k) { bad++; continue; }
+    const t = +m[4] * 60 + +m[5];
+    if (/^e/i.test(m[6])) {
+      if (open) bad++;
+      open = { k, t };
+    } else {
+      const dd = open ? Math.round((pd(k) - pd(open.k)) / 864e5) : 9;
+      if (!open || dd < 0 || dd > 1) { bad++; open = null; continue; }
+      const tt = t + dd * 1440,
+        a = Math.ceil((open.t - 5) / 15) * 15,
+        b = Math.max(a, Math.floor(tt / 15) * 15);
+      (D[open.k] = D[open.k] || []).push({
+        a: hm(a), b: hm(b), p: 0, e: hm(open.t), u: hm(t),
+      });
+      open = null;
+    }
+  }
+  if (open) bad++;
+  return { D, bad };
+}
+function pickTim() {
+  if (typeof pdfjsLib === "undefined")
+    return bmsg("Libreria PDF non disponibile (serve la connessione).", 1);
+  const i = document.createElement("input");
+  i.type = "file";
+  i.accept = "application/pdf";
+  i.multiple = true;
+  i.onchange = () => i.files.length && importTim([...i.files]);
+  i.click();
+}
+async function importTim(files) {
+  bmsg("Lettura timbrature…");
+  try {
+    const M = {};
+    let bad = 0;
+    for (const f of files) {
+      const pg = await readPdf2(f);
+      if (pg.map((p) => p.txt).join("").trim().length < 30)
+        return bmsg("Nessun testo trovato: serve un PDF digitale.", 1);
+      const r = parseTim(pg);
+      bad += r.bad;
+      for (const k in r.D) {
+        const a = (M[k] = M[k] || []);
+        r.D[k].forEach((t) => {
+          if (!a.some((z) => z.e === t.e && z.u === t.u)) a.push(t);
+        });
+      }
+    }
+    const ks = Object.keys(M).sort();
+    if (!ks.length) return bmsg("Nessuna timbratura trovata nel PDF.", 1);
+    ks.forEach((k) => {
+      M[k].sort((x, y) => (x.e < y.e ? -1 : x.e > y.e ? 1 : 0));
+      (S.days[k] = S.days[k] || {}).tim = M[k];
+    });
+    save();
+    bmsg(
+      "Importati " + ks.length + " giorni (" + dIt(ks[0]) + " → " + dIt(ks[ks.length - 1]) + ") ✓" +
+        (bad ? " · " + bad + " timbrature scartate (senza coppia)" : ""),
+    );
+  } catch (e) {
+    bmsg("Errore nella lettura delle timbrature.", 1);
+  }
+}
+function timTab(T, man) {
+  const tm = (v) => +v.slice(0, 2) * 60 + +v.slice(3, 5),
+    mi = (t) => {
+      let m = tm(t.b) - tm(t.a);
+      return m < 0 ? m + 1440 : m;
+    },
+    tot = T.reduce((z, t) => z + mi(t), 0),
+    df = man != null ? tot / 60 - man : null;
+  return `<h4 class="sh">Timbrato</h4><table class="tb"><thead><tr><th>Timbrata</th><th>Turno</th><th>Durata</th></tr></thead><tbody>${T.map((t) => `<tr><td>${t.e} – ${t.u}</td><td>${t.a} – ${t.b}</td><td><b>${fmtH(mi(t) / 60)}</b></td></tr>`).join("")}</tbody><tfoot><tr><td colspan="2">Totale</td><td><b>${fmtH(tot / 60)}</b></td></tr>${df != null ? `<tr><td colspan="2">Differenza col turno inserito</td><td><b class="${Math.abs(df) < 0.01 ? "pos" : "neg"}">${df > 0 ? "+" : ""}${fmtH(df)}</b></td></tr>` : ""}</tfoot></table>`;
+}
 function pickRestore() {
   const i = document.createElement("input");
   i.type = "file";
@@ -551,6 +636,7 @@ function bSet() {
   $("#bk").onclick = doBackup;
   $("#rs").onclick = pickRestore;
   $("#rr").onclick = askReread;
+  $("#tp").onclick = pickTim;
 }
 const IC = {
   e: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
@@ -1020,7 +1106,9 @@ function vCal() {
     if (k === td) cl.push("now");
     if (k === sel) cl.push("sl");
     if (k < ps || k > pe) cl.push("out");
-    c += `<button class="${cl.join(" ")}" data-d="${k}">${i}${k === td || z.h || z.t ? "<i></i>" : ""}</button>`;
+    const mk = k === td || z.h || z.t;
+    if (mk && z.tim) cl.push("two");
+    c += `<button class="${cl.join(" ")}" data-d="${k}">${i}${mk ? "<i></i>" : ""}${z.tim ? "<em></em>" : ""}</button>`;
   }
   const D = pd(sel),
     x = S.days[sel] || {},
@@ -1043,7 +1131,7 @@ function vCal() {
 <div class="card"><div class="cal">${["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"].map((g) => `<div class="wd">${g}</div>`).join("")}${c}</div></div>
 <div class="card"><div class="row"><b>Periodo di calcolo</b><b class="neg">Importante!</b></div><div class="fg"><div><label>Dal</label><input type="date" id="ps" value="${ps}"></div><div><label>Al</label><input type="date" id="pe" value="${pe}"></div></div></div>
 <div class="card"><div class="row" style="align-items:flex-start"><div><b>${GF[D.getDay()]} ${D.getDate()} ${MESI[D.getMonth()]}</b><small style="display:block;color:var(--mu);margin-top:2px">${stt}</small></div><small style="color:#ef4444;text-align:right">${H[sel] || ""}</small></div>
-<div class="dact"><select id="dt">${op("", "Lavoro")}${op("ferie", "Ferie")}${op("permesso", "Permesso")}${op("malattia", "Malattia")}</select><button class="b" id="${t === "" ? "da" : "di"}">${lab}</button><button class="b s" id="dc">Cancella</button></div>${x.turni && !x.t ? turniTab(x.turni) : ""}</div>
+<div class="dact"><select id="dt">${op("", "Lavoro")}${op("ferie", "Ferie")}${op("permesso", "Permesso")}${op("malattia", "Malattia")}</select><button class="b" id="${t === "" ? "da" : "di"}">${lab}</button><button class="b s" id="dc">Cancella</button></div>${x.turni && !x.t ? '<h4 class="sh">Turno inserito</h4>' + turniTab(x.turni) : ""}${x.tim ? timTab(x.tim, x.turni && !x.t ? x.h : null) : ""}</div>
 <div class="card"><div class="grid"><div class="k"><b>${fmtH(st.w + st.fe)}</b><span>Ore effettive (incl. assenze)</span></div><div class="k"><b>${fmtH(st.e)}</b><span>Ore previste</span></div><div class="k"><b class="${st.bal >= 0 ? "pos" : "neg"}">${st.bal > 0 ? "+" : ""}${fmtH(st.bal)}</b><span>Saldo mese</span></div><div class="k"><b>${st.ex} / ${st.hol}</b><span>Ferie / festivi nel mese</span></div></div></div>${vBustaMese(y, m)}`;
 }
 function vBustaMese(y, m) {
@@ -1120,7 +1208,12 @@ function ferieModal(k0) {
       m.querySelector("#mc").onclick = close;
       m.querySelector("#ms").onclick = () => {
         const P = cur();
-        for (const k in P) S.days[k] = { t: "ferie", h: P[k] };
+        for (const k in P) {
+          const o = { t: "ferie", h: P[k] },
+            tm = (S.days[k] || {}).tim;
+          if (tm) o.tim = tm;
+          S.days[k] = o;
+        }
         pt = null;
         save();
         keep = 1;
@@ -1165,7 +1258,7 @@ function bCal() {
       if (nt != null) x.t = nt;
       x.h = undefined;
       delete x.turni;
-      if (!x.h && !x.t) delete S.days[k];
+      if (!x.h && !x.t && !x.tim) delete S.days[k];
       pt = null;
       save();
       keep = 1;
@@ -1187,7 +1280,9 @@ function bCal() {
       `Stai per cancellare <b>${GF[D.getDay()]} ${D.getDate()} ${MESI[D.getMonth()]}</b> (${what}). L'operazione non si può annullare.`,
       "Cancella",
       () => {
+        const tim = (S.days[k] || {}).tim;
         delete S.days[k];
+        if (tim) S.days[k] = { tim };
         save();
         keep = 1;
         render();

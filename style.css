@@ -821,3 +821,29 @@ input[type="file"] {
   min-height: 0;
   overflow: auto;
 }
+
+.dy em {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  margin-left: -3.5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1.5px solid #38bdf8;
+}
+.dy.two i {
+  margin-left: -8px;
+}
+.dy.two em {
+  margin-left: 1.5px;
+}
+.dy.sl em {
+  border-color: var(--on, #000);
+}
+.sh {
+  margin: 14px 0 0;
+  font-size: 13px;
+  color: var(--mu);
+  font-weight: 600;
+}

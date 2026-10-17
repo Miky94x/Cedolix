@@ -88,6 +88,14 @@ function holidays(y) {
 const wh = () => +S.set.wh || 0,
   exp = () => wh() / 7,
   std = () => wh() / 5;
+// ore di un giorno: quelle inserite a mano; se mancano, le timbrature (turni arrotondati)
+const timH = (T) =>
+    (T || []).reduce((z, t) => {
+      let m = +t.b.slice(0, 2) * 60 + +t.b.slice(3, 5) - (+t.a.slice(0, 2) * 60 + +t.a.slice(3, 5));
+      if (m < 0) m += 1440;
+      return z + m;
+    }, 0) / 60,
+  dayH = (x) => (x && +x.h > 0 ? +x.h : timH(x && x.tim));
 function period(y, m) {
   const p = (S.per && S.per[y + "-" + String(m + 1).padStart(2, "0")]) || {},
     ds = new Date(y, m, 1),
@@ -115,7 +123,7 @@ function monthStats(y, m) {
     if (x.t === "ferie" || x.t === "malattia" || x.t === "permesso") {
       fe += x.t === "ferie" && x.h != null && x.h !== "" ? +x.h : std();
       if (x.t === "ferie") ex++;
-    } else if (x.h) w += +x.h;
+    } else w += dayH(x);
   }
   return { w, e, fe, ex, hol, bal: w + fe - e };
 }
@@ -459,7 +467,10 @@ function meseDati(y, m) {
     const o = x.h != null && x.h !== "" ? +x.h : std();
     if (x.t === "ferie") fer += o;
     else if (x.t === "permesso") perm += o;
-    else if (x.h > 0 && (H[yy][k] || d.getDay() === 0)) fest += +x.h;
+    else {
+      const h = dayH(x);
+      if (h > 0 && (H[yy][k] || d.getDay() === 0)) fest += h;
+    }
   }
   return { st, fer, perm, fest, supp: Math.max(0, st.bal) };
 }
