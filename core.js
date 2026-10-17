@@ -96,12 +96,24 @@ const timH = (T) =>
       return z + m;
     }, 0) / 60,
   dayH = (x) => (x && +x.h > 0 ? +x.h : timH(x && x.tim));
+// periodo di conteggio automatico: da lunedì a domenica, finisce l'ultima domenica del mese
+// e inizia il lunedì dopo l'ultima domenica del mese prima (es. ott 2026: 28/09 -> 25/10)
+const lastSun = (y, m) => {
+  const d = new Date(y, m + 1, 0);
+  d.setDate(d.getDate() - d.getDay());
+  return d;
+};
+function periodAuto(y, m) {
+  const s = lastSun(y, m - 1);
+  s.setDate(s.getDate() + 1);
+  return { s, e: lastSun(y, m) };
+}
+// date scelte a mano (S.per) hanno la precedenza sul calcolo automatico
 function period(y, m) {
   const p = (S.per && S.per[y + "-" + String(m + 1).padStart(2, "0")]) || {},
-    ds = new Date(y, m, 1),
-    de = new Date(y, m + 1, 0),
-    r = { s: p.s ? pd(p.s) : ds, e: p.e ? pd(p.e) : de };
-  return r.s > r.e ? { s: ds, e: de } : r;
+    A = periodAuto(y, m),
+    r = { s: p.s ? pd(p.s) : A.s, e: p.e ? pd(p.e) : A.e };
+  return r.s > r.e ? A : r;
 }
 function monthStats(y, m) {
   const P = period(y, m),

@@ -465,9 +465,31 @@ async function importTim(files) {
       M[k].sort((x, y) => (x.e < y.e ? -1 : x.e > y.e ? 1 : 0));
       (S.days[k] = S.days[k] || {}).tim = M[k];
     });
+    // per ogni mese con timbrature senza periodo salvato, scrivo quello calcolato
+    let np = 0;
+    S.per = S.per || {};
+    ks.forEach((k) => {
+      const d = pd(k);
+      for (const o of [0, 1]) {
+        const dm = new Date(d.getFullYear(), d.getMonth() + o, 1),
+          y = dm.getFullYear(),
+          m = dm.getMonth(),
+          P = period(y, m);
+        if (d < P.s || d > P.e) continue;
+        const K = y + "-" + String(m + 1).padStart(2, "0"),
+          c = S.per[K] || {};
+        if (!c.s && !c.e) {
+          const A = periodAuto(y, m);
+          S.per[K] = { s: iso(A.s), e: iso(A.e) };
+          np++;
+        }
+        break;
+      }
+    });
     save();
     bmsg(
       "Importati " + ks.length + " giorni (" + dIt(ks[0]) + " → " + dIt(ks[ks.length - 1]) + ") ✓" +
+        (np ? " · " + np + (np === 1 ? " periodo di conteggio impostato" : " periodi di conteggio impostati") : "") +
         (bad ? " · " + bad + " timbrature scartate (senza coppia)" : ""),
     );
   } catch (e) {
