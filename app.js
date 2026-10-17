@@ -1024,7 +1024,7 @@ function vSim(pm, PP, dm) {
   if (!s)
     return `<div class="card">${tit}<p style="color:var(--mu);margin:10px 0 0">Carica una busta paga per calcolare la paga oraria.</p></div>`;
   return `<div class="card">${tit}
-${r("Ore ordinarie", eur(s.po), fmtH(s.ord) + " su " + fmtH(s.D.st.e) + " previste × " + fmt(s.hr) + " €/h")}
+${s.fisso ? r("Retribuzione mensile", eur(s.po), "paga fissa " + eur(s.l.retrib) + " × " + fmt1(s.prog * 100) + "% · " + fmtH(s.ord) + " su " + fmtH(s.D.st.e) + " previste") : r("Ore ordinarie", eur(s.po), fmtH(s.ord) + " su " + fmtH(s.D.st.e) + " previste × " + fmt(s.hr) + " €/h")}
 ${r("Suppl./straord. " + fmt1((s.sp - 1) * 100) + "%", eur(s.ps), fmtH(s.D.supp) + " × " + fmt(s.hr * s.sp) + " €/h")}
 ${r("Maggiorazione festivo " + Math.round(s.fp * 100) + "%", eur(s.pf), fmtH(s.D.fest) + " × " + fmt(s.hr * s.fp) + " €/h")}
 ${s.paFull > 0 ? r("Altre competenze fisse", eur(s.pa), "come nella busta di " + s.l.per + " · " + Math.round(s.prog * 100) + "% del mese") : ""}
@@ -1137,7 +1137,7 @@ function vCal() {
     t = pt && pt.k === sel ? pt.t : x.t || "",
     op = (v, l) =>
       `<option value="${v}"${t === v ? " selected" : ""}>${l}</option>`,
-    hh = x.t === "ferie" && x.h != null && x.h !== "" ? +x.h : std(),
+    hh = (x.t === "ferie" || x.t === "permesso") && x.h != null && x.h !== "" ? +x.h : std(),
     stt = x.t
       ? cap(x.t) + " · " + fmtH(hh)
       : x.h
@@ -1146,7 +1146,7 @@ function vCal() {
     lab = {
       "": "+ Aggiungi turno",
       ferie: "+ Inserisci ferie",
-      permesso: "Segna permesso",
+      permesso: "+ Inserisci permessi",
       malattia: "Segna malattia",
     }[t];
   return `<div class="row" style="margin-bottom:10px"><button class="b s" id="pv">‹</button><h2>${MESI[m]} ${y}</h2><button class="b s" id="nx">›</button></div>
@@ -1173,7 +1173,8 @@ function vBustaMese(y, m) {
   }</div>`;
 }
 
-function ferieModal(k0) {
+function ferieModal(k0, tipo = "ferie") {
+  const TT = tipo === "permesso" ? ["Inserisci permessi", "Permessi da scalare"] : ["Inserisci ferie", "Ferie da scalare"];
   const rng = (a, b) => {
       const o = [],
         d = pd(a),
@@ -1201,7 +1202,7 @@ function ferieModal(k0) {
       return out;
     };
   modal(
-    `<h3>Inserisci ferie</h3><div class="fg"><div><label>Dal</label><input type="date" id="fa" value="${k0}"></div><div><label>Al</label><input type="date" id="fb" value="${k0}"></div></div><div class="tot"><div><span>Ferie da scalare</span><small id="fd" style="display:block;color:var(--mu);margin-top:2px"></small></div><b id="ft"></b></div><p style="color:var(--mu);font-size:13px;margin:0 0 14px">Ogni 7 giorni consecutivi si scalano al massimo le ore settimanali; per meno giorni, ore settimanali ÷ 5 al giorno. I festivi non vengono segnati.</p><div class="row"><button class="b s" id="mc">Annulla</button><button class="b" id="ms">Salva</button></div>`,
+    `<h3>${TT[0]}</h3><div class="fg"><div><label>Dal</label><input type="date" id="fa" value="${k0}"></div><div><label>Al</label><input type="date" id="fb" value="${k0}"></div></div><div class="tot"><div><span>${TT[1]}</span><small id="fd" style="display:block;color:var(--mu);margin-top:2px"></small></div><b id="ft"></b></div><p style="color:var(--mu);font-size:13px;margin:0 0 14px">Ogni 7 giorni consecutivi si scalano al massimo le ore settimanali; per meno giorni, ore settimanali ÷ 5 al giorno. I festivi non vengono segnati.</p><div class="row"><button class="b s" id="mc">Annulla</button><button class="b" id="ms">Salva</button></div>`,
     (m, close) => {
       const A = m.querySelector("#fa"),
         B = m.querySelector("#fb"),
@@ -1231,7 +1232,7 @@ function ferieModal(k0) {
       m.querySelector("#ms").onclick = () => {
         const P = cur();
         for (const k in P) {
-          const o = { t: "ferie", h: P[k] },
+          const o = { t: tipo, h: P[k] },
             tm = (S.days[k] || {}).tim;
           if (tm) o.tim = tm;
           S.days[k] = o;
@@ -1272,8 +1273,8 @@ function bCal() {
   if ($("#di"))
     $("#di").onclick = () => {
       if (!wh()) return avvisoOre();
-      if ((pt && pt.k === sel ? pt.t : (S.days[sel] || {}).t) === "ferie")
-        return ferieModal(sel);
+      const tp = pt && pt.k === sel ? pt.t : (S.days[sel] || {}).t;
+      if (tp === "ferie" || tp === "permesso") return ferieModal(sel, tp);
       const k = sel,
         nt = pt && pt.k === k ? pt.t : null,
         x = (S.days[k] = S.days[k] || {});

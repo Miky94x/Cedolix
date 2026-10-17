@@ -133,7 +133,7 @@ function monthStats(y, m) {
     e += exp();
     if (h[yy][k]) hol++;
     if (x.t === "ferie" || x.t === "malattia" || x.t === "permesso") {
-      fe += x.t === "ferie" && x.h != null && x.h !== "" ? +x.h : std();
+      fe += (x.t === "ferie" || x.t === "permesso") && x.h != null && x.h !== "" ? +x.h : std();
       if (x.t === "ferie") ex++;
     } else w += dayH(x);
   }
@@ -160,7 +160,7 @@ function ferie() {
       uo += x.h != null && x.h !== "" ? +x.h : d;
     } else if (x.t === "permesso") {
       usatiP++;
-      up += d;
+      up += x.h != null && x.h !== "" ? +x.h : d;
     }
   }
   const fer = l.ferieSaldo || 0,
@@ -414,9 +414,13 @@ function simOre(y, m) {
     fp = (l.festPerc || 30) / 100,
     // parte da 0 e cresce con le ore segnate; ordinarie fino alle ore previste del periodo
     ord = Math.max(0, D.st.w + D.st.fe - D.supp),
-    po = ord * hr,
-    ps = D.supp * hr * sp,
-    pf = D.fest * hr * fp,
+    prog = D.st.e ? Math.min(1, ord / D.st.e) : 0,
+    // paga mensile fissa (es. 26 giorni): non dipende dalle ore del periodo
+    fisso = !!(l.retribGG && l.retrib > 0),
+    po = r2(fisso ? l.retrib * prog : ord * hr),
+    // ogni voce si arrotonda al centesimo prima di sommare, come in busta
+    ps = r2(D.supp * hr * sp),
+    pf = r2(D.fest * hr * fp),
     // altre competenze fisse della busta (es. indennità): maturano in proporzione alle ore previste
     base =
       l.retribGG && l.retrib > 0
@@ -426,8 +430,7 @@ function simOre(y, m) {
           : null,
     paFull =
       base == null ? 0 : Math.max(0, l.lordo - base - (l.straordImp || 0)),
-    prog = D.st.e ? Math.min(1, (D.st.w + D.st.fe) / D.st.e) : 0,
-    pa = paFull * prog,
+    pa = r2(paFull * prog),
     lordo = po + ps + pf + pa;
   const q = quinto(l),
     qd =
@@ -447,6 +450,7 @@ function simOre(y, m) {
     pa,
     paFull,
     prog,
+    fisso,
     sp,
     fp,
     lordo,
@@ -467,24 +471,50 @@ const pd = (s) => new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8)),
 function meseDati(y, m) {
   const P = period(y, m),
     st = monthStats(y, m),
-    H = {};
+    H = {},
+    R = (v) => Math.round(v * 1e6) / 1e6;
   let fer = 0,
     perm = 0,
-    fest = 0;
+    fest = 0,
+    supp = 0,
+    cum = 0,
+    cap = 0;
   for (let d = new Date(P.s); d <= P.e; d.setDate(d.getDate() + 1)) {
     const k = iso(d),
       x = S.days[k] || {},
       yy = d.getFullYear();
     H[yy] = H[yy] || holidays(yy);
+    // il tetto settimanale (ore da contratto) riparte ogni lunedì; una settimana
+    // tagliata dal periodo ha il tetto in proporzione ai giorni che contiene
+    if (d.getDay() === 1 || +d === +P.s) {
+      const n = Math.min(
+        7 - ((d.getDay() + 6) % 7),
+        Math.round((P.e - d) / 864e5) + 1,
+      );
+      cum = 0;
+      cap = (wh() * n) / 7;
+    }
     const o = x.h != null && x.h !== "" ? +x.h : std();
-    if (x.t === "ferie") fer += o;
-    else if (x.t === "permesso") perm += o;
+    if (x.t === "ferie") {
+      fer += o;
+      cum += o;
+    } else if (x.t === "permesso") {
+      perm += o;
+      cum += o;
+    } else if (x.t === "malattia") cum += std();
     else {
       const h = dayH(x);
-      if (h > 0 && (H[yy][k] || d.getDay() === 0)) fest += h;
+      if (h > 0) {
+        // le ore oltre il tetto della settimana sono suppl./straord.; il festivo
+        // si calcola solo sulle ore ordinarie (quelle già suppl. non lo prendono)
+        const ord = Math.min(h, Math.max(0, cap - cum));
+        supp += h - ord;
+        cum += h;
+        if (H[yy][k] || d.getDay() === 0) fest += ord;
+      }
     }
   }
-  return { st, fer, perm, fest, supp: Math.max(0, st.bal) };
+  return { st, fer: R(fer), perm: R(perm), fest: R(fest), supp: R(supp) };
 }
 function bustaMese(y, m) {
   const k = y + "-" + String(m + 1).padStart(2, "0");
@@ -495,7 +525,15 @@ function checkMese(y, m) {
   if (!p) return null;
   const D = meseDati(y, m);
   return [
-    ["Ore lavorate", D.st.w, (p.ore || 0) + (p.straord || 0)],
+    // paga mensile fissa: le ore ordinarie in busta sono quelle del mese fisso, non quelle
+    // del periodo; le ore realmente dovute sono previste − assenze, più le suppl./straord.
+    [
+      "Ore lavorate",
+      D.st.w,
+      p.retribGG && p.retrib > 0
+        ? D.st.e - (p.ferieGod || 0) - (p.exGod || 0) + (p.straord || 0)
+        : (p.ore || 0) + (p.straord || 0),
+    ],
     [
       "Ore suppl./straord. " + fmt1(p.suppPerc || 35) + "%",
       D.supp,
