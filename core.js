@@ -226,6 +226,37 @@ const perPrev = (per) => {
     m = +per.slice(5, 7);
   return m === 1 ? y - 1 + "-12" : y + "-" + String(m - 1).padStart(2, "0");
 };
+// trattenute contributive e addizionali lette dalle voci della busta:
+// IVS (importo, base, aliquota), addizionali regionale/comunale, codici delle trattenute
+function contrib(p) {
+  const V = (p.voci || []).filter(
+    (v) => v.k === "T" && !v.m && !isQ(v) && v.i > 0,
+  );
+  if (!V.length) return null;
+  const o = { ivs: 0, base: null, ali: null, addReg: 0, addCom: 0, cod: new Map() },
+    iv = [];
+  V.forEach((v) => {
+    const d = (v.d || "").toLowerCase();
+    if (/addiz/.test(d)) {
+      if (/region/.test(d)) o.addReg += v.i;
+      else if (/comun/.test(d)) o.addCom += v.i;
+      return;
+    }
+    o.cod.set(v.c, v);
+    if (/fondo|fasc|cometa|solidariet|sindac|\best\b|cassa|complementar/.test(d))
+      return;
+    if (/\bivs\b|inps|previdenz|c\/\s*dip|carico (del )?dipendente/.test(d))
+      iv.push(v);
+  });
+  if (iv.length) {
+    o.ivs = r2(iv.reduce((z, v) => z + v.i, 0));
+    const b = iv.find((v) => v.r > 100);
+    o.base = b ? b.r : null;
+    const pc = iv.length === 1 && iv[0].u === "%" && iv[0].q > 0 ? iv[0].q : null;
+    o.ali = pc != null ? pc : o.base ? (o.ivs / o.base) * 100 : null;
+  }
+  return o;
+}
 // controlli di coerenza: dentro la busta e con quella del mese prima
 function checkBusta(p) {
   const out = [],
@@ -370,6 +401,102 @@ function checkBusta(p) {
     };
     cum("Ferie", "ferieGodAnno", "ferieGod");
     cum("Ex-festività", "exGodAnno", "exGod");
+    // contributi e ritenute: IVS, IRPEF, addizionali
+    const ca = contrib(p),
+      cb = contrib(pv),
+      // progressivo = progressivo del mese prima + valore del mese
+      prog = (nome, kp, val) => {
+        if (!has(p[kp]) || val == null || (same && !has(pv[kp]))) return;
+        const base = same ? pv[kp] : 0,
+          d = base + val - p[kp];
+        if (Math.abs(d) > 1)
+          add(
+            nome + ": il progressivo non torna",
+            "busta di " +
+              L +
+              ": " +
+              f(base) +
+              " + del mese " +
+              f(val) +
+              " = " +
+              f(base + val) +
+              " · progressivo in busta " +
+              f(p[kp]) +
+              ". Può essere un conguaglio o un errore di lettura.",
+            sg(d) + " €",
+          );
+      };
+    prog("Imponibile IRPEF", "progImpIrpef", has(p.impIrpef) ? p.impIrpef : null);
+    prog("IRPEF", "progIrpef", has(p.irpef) ? p.irpef : null);
+    prog("Imponibile INPS", "progImpInps", ca && ca.base ? ca.base : null);
+    if (
+      has(p.irpef) &&
+      has(p.impIrpef) &&
+      has(pv.irpef) &&
+      has(pv.impIrpef) &&
+      p.impIrpef > 0 &&
+      pv.impIrpef > 0
+    ) {
+      const ra = (p.irpef / p.impIrpef) * 100,
+        rb = (pv.irpef / pv.impIrpef) * 100;
+      if (Math.abs(ra - rb) > 4)
+        add(
+          "Aliquota media IRPEF cambiata",
+          "ritenute ÷ imponibile: " +
+            L +
+            " " +
+            fmt1(rb) +
+            "% → " +
+            fmt1(ra) +
+            "%. A dicembre o con arretrati può essere il conguaglio.",
+          sg(ra - rb) + " punti",
+        );
+    }
+    if (ca && cb) {
+      if (!!ca.ivs !== !!cb.ivs)
+        add(
+          "Contributi IVS " + (ca.ivs ? "non c'erano" : "non più presenti"),
+          "Nella busta di " + L + " " + (ca.ivs ? "mancavano" : "c'erano") + " (" + f(cb.ivs || ca.ivs) + " €)",
+        );
+      else if (
+        ca.ali != null &&
+        cb.ali != null &&
+        Math.abs(ca.ali - cb.ali) > 0.05
+      )
+        add(
+          "Aliquota contributi IVS cambiata",
+          L + " " + fmt(cb.ali) + "% → " + fmt(ca.ali) + "%. A gennaio può essere il cambio di aliquota.",
+          sg(ca.ali - cb.ali) + " punti",
+        );
+      if (same)
+        [
+          ["addReg", "Addizionale regionale"],
+          ["addCom", "Addizionale comunale"],
+        ].forEach(([k, n]) => {
+          if (ca[k] > 0 && cb[k] > 0 && Math.abs(ca[k] - cb[k]) > Math.max(1, cb[k] * 0.1))
+            add(
+              n + " cambiata",
+              L + " " + f(cb[k]) + " € → " + f(ca[k]) + " €. Di solito resta uguale per tutto l'anno.",
+              sg(ca[k] - cb[k]) + " €",
+            );
+        });
+      ca.cod.forEach((v, c) => {
+        if (!cb.cod.has(c))
+          add(
+            "Trattenuta nuova: " + v.d,
+            "Non c'era nella busta di " + L + " (codice " + c + "). Se è prevista puoi ignorarla.",
+            "+" + f(v.i) + " €",
+          );
+      });
+      cb.cod.forEach((v, c) => {
+        if (!ca.cod.has(c))
+          add(
+            "Trattenuta non più presente: " + v.d,
+            "C'era nella busta di " + L + " (codice " + c + "). Se è finita come previsto puoi ignorarla.",
+            "−" + f(v.i) + " €",
+          );
+      });
+    }
     if (same) {
       [
         ["Ferie", "ferieAP", "ferieMat"],
