@@ -485,7 +485,16 @@ function meseDati(y, m) {
     fest = 0,
     supp = 0,
     cum = 0,
-    cap = 0;
+    cap = 0,
+    wk = [],
+    cw = null;
+  const fin = () => {
+    if (cw) {
+      cw.tot = cum;
+      cw.sopra = Math.max(0, cum - cw.cap);
+      wk.push(cw);
+    }
+  };
   for (let d = new Date(P.s); d <= P.e; d.setDate(d.getDate() + 1)) {
     const k = iso(d),
       x = S.days[k] || {},
@@ -498,8 +507,15 @@ function meseDati(y, m) {
         7 - ((d.getDay() + 6) % 7),
         Math.round((P.e - d) / 864e5) + 1,
       );
+      fin();
       cum = 0;
       cap = (wh() * n) / 7;
+      cw = {
+        s: new Date(d),
+        e: new Date(d.getFullYear(), d.getMonth(), d.getDate() + n - 1),
+        cap,
+        fest: 0,
+      };
       // festivo non lavorato (lun-ven e domenica; il sabato no): abbassa il tetto
       // ordinario dell'intera settimana, anche se cade dopo i giorni lavorati
       for (let i = 0; i < n; i++) {
@@ -529,14 +545,21 @@ function meseDati(y, m) {
         cum += h;
         // il sabato festivo lavorato non prende la maggiorazione festivo (come in busta)
         // il santo patrono (festa locale) vale come giorno in più ma senza maggiorazione festivo
-        if ((H[yy][k] && H[yy][k] !== "Santo Patrono" && d.getDay() !== 6) || d.getDay() === 0) fest += ord;
+        if (
+          (H[yy][k] && H[yy][k] !== "Santo Patrono" && d.getDay() !== 6) ||
+          d.getDay() === 0
+        ) {
+          fest += ord;
+          if (cw) cw.fest += ord;
+        }
       }
     }
   }
+  fin();
   // suppl./straord.: ore effettive del periodo (assenze e festivi non lavorati inclusi)
   // oltre le ore previste; le settimane sotto le 30h compensano quelle sopra
   const suppP = Math.max(0, st.w + st.fe - st.e);
-  return { st, fer: R(fer), perm: R(perm), fest: R(fest), supp: R(suppP) };
+  return { st, fer: R(fer), perm: R(perm), fest: R(fest), supp: R(suppP), wk };
 }
 function bustaMese(y, m) {
   const k = y + "-" + String(m + 1).padStart(2, "0");
@@ -556,32 +579,93 @@ function godMese(p, k) {
 function checkMese(y, m) {
   const p = bustaMese(y, m);
   if (!p) return null;
-  const D = meseDati(y, m);
-  return [
-    // paga mensile fissa: le ore ordinarie in busta sono quelle del mese fisso, non quelle
-    // del periodo; le ore realmente dovute sono previste − assenze, più le suppl./straord.
-    [
-      "Ore lavorate",
-      D.st.w + D.st.hf,
-      p.retribGG && p.retrib > 0
-        ? D.st.e - godMese(p, "ferie") - godMese(p, "ex") + (p.straord || 0)
-        : (p.ore || 0) + (p.straord || 0),
-    ],
-    [
-      "Ore suppl./straord. " + fmt1(p.suppPerc || 35) + "%",
-      D.supp,
-      p.straord || 0,
-    ],
-    ["Ore festive " + (p.festPerc || 30) + "%", D.fest, p.festOre || 0],
-    ["Ferie godute", D.fer, godMese(p, "ferie")],
-    ["Permessi", D.perm, godMese(p, "ex")],
-  ].map(([lab, a, b]) => ({
-    lab,
-    a,
-    b,
-    diff: a - b,
-    ok: Math.abs(a - b) <= 0.25,
-  }));
+  const D = meseDati(y, m),
+    gg = wh() / 6,
+    rows = [
+      // paga mensile fissa: le ore ordinarie in busta sono quelle del mese fisso, non quelle
+      // del periodo; le ore realmente dovute sono previste − assenze, più le suppl./straord.
+      [
+        "Ore lavorate",
+        D.st.w + D.st.hf,
+        p.retribGG && p.retrib > 0
+          ? D.st.e - godMese(p, "ferie") - godMese(p, "ex") + (p.straord || 0)
+          : (p.ore || 0) + (p.straord || 0),
+      ],
+      [
+        "Ore suppl./straord. " + fmt1(p.suppPerc || 35) + "%",
+        D.supp,
+        p.straord || 0,
+      ],
+      ["Ore festive " + (p.festPerc || 30) + "%", D.fest, p.festOre || 0],
+      ["Ferie godute", D.fer, godMese(p, "ferie")],
+      ["Permessi", D.perm, godMese(p, "ex")],
+    ].map(([lab, a, b]) => ({
+      lab,
+      a,
+      b,
+      diff: a - b,
+      ok: Math.abs(a - b) <= 0.25,
+    })),
+    [rl, rs, rf, rfe, rp] = rows,
+    miss = rfe.diff < -0.25 || rp.diff < -0.25,
+    giorni = (v) => {
+      const n = Math.abs(v) / gg;
+      return gg > 0 && n >= 0.9 && Math.abs(n - Math.round(n)) < 0.05
+        ? Math.round(n)
+        : 0;
+    },
+    fes =
+      "Controlla i festivi: un festivo non lavorato vale " +
+      fmtH(gg) +
+      " in più nelle ore, il Santo Patrono va impostato in Altro.";
+  if (!rfe.ok)
+    rfe.why =
+      rfe.diff < 0
+        ? "In busta ci sono ferie che nel calendario non hai segnato."
+        : "Hai segnato più ferie di quelle in busta: forse vengono pagate il mese dopo.";
+  if (!rp.ok)
+    rp.why =
+      rp.diff < 0
+        ? "In busta ci sono permessi che nel calendario non hai segnato."
+        : "Hai segnato più permessi di quelli in busta: forse vengono pagati il mese dopo.";
+  if (!rl.ok)
+    rl.why = miss
+      ? "Quasi sicuramente dipende dalle ferie o dai permessi non segnati."
+      : giorni(rl.diff)
+        ? "La differenza è di " + giorni(rl.diff) + " festivo/i da " + fmtH(gg) + ". " + fes
+        : rl.diff < 0
+          ? "Nel calendario mancano ore: un turno non timbrato o un giorno senza ore."
+          : "Nel calendario ci sono più ore della busta: un turno doppio o un giorno non pagato.";
+  if (!rs.ok)
+    rs.why = miss
+      ? "Le suppl. si calcolano su tutte le ore del periodo: segna prima ferie e permessi."
+      : giorni(rs.diff)
+        ? "La differenza è di " + giorni(rs.diff) + " festivo/i da " + fmtH(gg) + ". " + fes
+        : Math.abs(rs.diff) <= 1
+          ? "Piccola differenza: di solito sono gli arrotondamenti delle timbrature."
+          : "Sono le ore del periodo oltre quelle previste: controlla ore lavorate e festivi.";
+  if (!rf.ok)
+    rf.why =
+      "Il festivo vale su domeniche e festivi lun–ven; non sul sabato festivo né sul Santo Patrono. Controlla anche le domeniche lavorate.";
+  return rows;
+}
+// giorni del periodo senza nulla di registrato (esclusi domeniche e festivi):
+// candidati per ferie/permessi che la busta riporta e il calendario no
+function giorniLiberi(y, m) {
+  const P = period(y, m),
+    H = {},
+    out = [];
+  for (let d = new Date(P.s); d <= P.e; d.setDate(d.getDate() + 1)) {
+    const k = iso(d),
+      x = S.days[k] || {},
+      yy = d.getFullYear();
+    H[yy] = H[yy] || holidays(yy);
+    if (d.getDay() === 0 || H[yy][k]) continue;
+    if (x.t || x.h || (x.turni && x.turni.length) || (x.tim && x.tim.length))
+      continue;
+    out.push(k);
+  }
+  return out;
 }
 const num = (s) =>
   s == null ? null : parseFloat(String(s).replace(/\./g, "").replace(",", "."));

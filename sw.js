@@ -27,7 +27,16 @@ self.addEventListener("install", (e) => {
     caches
       .open(V)
       .then(async (c) => {
-        await c.addAll(LOCAL);
+        // "reload": salta la cache HTTP di GitHub Pages (10 minuti), altrimenti
+        // si rischia di salvare i file vecchi dentro la cache della nuova versione
+        await Promise.all(
+          LOCAL.map((u) =>
+            fetch(new Request(u, { cache: "reload" })).then((res) => {
+              if (!res.ok) throw new Error(u);
+              return c.put(u === "./" ? "./" : key(new URL(u, location.href)), res);
+            }),
+          ),
+        );
         await Promise.all(OPT.concat(CDN).map((u) => c.add(u).catch(() => {})));
       })
       .then(() => self.skipWaiting()),
@@ -56,7 +65,7 @@ self.addEventListener("fetch", (e) => {
             (m) =>
               m || (r.mode === "navigate" ? caches.match("index.html") : null),
           ),
-      net = fetch(r).then((res) => {
+      net = fetch(r, { cache: "no-cache" }).then((res) => {
         if (res.ok) {
           const cp = res.clone();
           caches.open(V).then((c) => c.put(key(u), cp));

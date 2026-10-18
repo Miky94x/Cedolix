@@ -461,8 +461,13 @@ async function importTim(files) {
     }
     const ks = Object.keys(M).sort();
     if (!ks.length) return bmsg("Nessuna timbratura trovata nel PDF.", 1);
+    let nuovi = 0,
+      uguali = 0;
     ks.forEach((k) => {
       M[k].sort((x, y) => (x.e < y.e ? -1 : x.e > y.e ? 1 : 0));
+      const old = (S.days[k] || {}).tim;
+      if (old && JSON.stringify(old) === JSON.stringify(M[k])) uguali++;
+      else nuovi++;
       (S.days[k] = S.days[k] || {}).tim = M[k];
     });
     // per ogni mese con timbrature senza periodo salvato, scrivo quello calcolato
@@ -487,10 +492,31 @@ async function importTim(files) {
       }
     });
     save();
-    bmsg(
-      "Importati " + ks.length + " giorni (" + dIt(ks[0]) + " → " + dIt(ks[ks.length - 1]) + ") ✓" +
-        (np ? " · " + np + (np === 1 ? " periodo di conteggio impostato" : " periodi di conteggio impostati") : "") +
-        (bad ? " · " + bad + " timbrature scartate (senza coppia)" : ""),
+    // periodi di 7+ giorni senza timbrature né ferie/permessi segnati: PDF incompleto?
+    const gaps = [];
+    let run = null;
+    for (const d = pd(ks[0]); iso(d) <= ks[ks.length - 1]; d.setDate(d.getDate() + 1)) {
+      const k = iso(d),
+        x = S.days[k] || {},
+        vuoto = !(x.tim && x.tim.length) && !x.t && !x.h;
+      if (vuoto) {
+        if (!run) run = { a: k, n: 0 };
+        run.b = k;
+        run.n++;
+      } else if (run) {
+        if (run.n >= 7) gaps.push(run);
+        run = null;
+      }
+    }
+    if (run && run.n >= 7) gaps.push(run);
+    const rw = (l, v, sub) =>
+      `<div class="fr"><div>${l}${sub ? `<small>${sub}</small>` : ""}</div><b>${v}</b></div>`;
+    bmsg("");
+    modal(
+      `<h3>Timbrature importate</h3>${rw("Giorni letti", ks.length, dIt(ks[0]) + " → " + dIt(ks[ks.length - 1]))}${rw("Nuovi o aggiornati", nuovi)}${rw("Già presenti, uguali", uguali)}${np ? rw("Periodi di conteggio impostati", np) : ""}${bad ? rw("Timbrature scartate", bad, "senza coppia entrata/uscita") : ""}${gaps.length ? `<h4 class="sh">Senza timbrature per 7+ giorni</h4>${gaps.slice(0, 6).map((g) => rw(dIt(g.a) + " → " + dIt(g.b), g.n + " gg")).join("")}<p style="color:var(--mu);font-size:13px;margin:8px 0 0">Può essere un periodo di ferie o riposo, oppure un PDF incompleto. Se erano ferie, segnale nel calendario.</p>` : ""}<div class="row" style="margin-top:14px"><button class="b" id="mc">Ok</button></div>`,
+      (m, close) => {
+        m.querySelector("#mc").onclick = close;
+      },
     );
   } catch (e) {
     bmsg("Errore nella lettura delle timbrature.", 1);
@@ -1076,6 +1102,7 @@ function vHome() {
   const nd = nh ? pd(nh[0]) : null;
   return `<div class="hero"><small>${GG[n.getDay()]} ${n.getDate()} ${MESI[m]} ${y}</small><small style="display:block;margin-top:12px">${hlab}</small><div class="big fit">${hbig}</div><div class="bar"><i style="width:${pct}%"></i></div><small>${hsub}</small></div>
 ${vBk()}
+${vPat()}
 <div class="card"><div class="row"><b>Oggi</b><span style="color:var(--mu);text-align:right">${stt}</span></div>${x.turni && !x.t ? turniTab(x.turni) : ""}</div>
 <div class="card"><div class="fr" id="goc" style="cursor:pointer"><div>Ore di contratto</div><b style="color:var(--ac)">${wh() ? fmt(wh()) + " ore" : "—"}</b></div><div class="fr"><div>Data assunzione</div><b>${S.set.hire ? esc(dIt(S.set.hire)) : "—"}</b></div><div class="grid" style="margin-top:10px"><div class="k"><b>${a ? a.y + " a " + a.m + " m " + a.d + " g" : "—"}</b><span>Anzianità</span></div><div class="k"><b>${nd ? nd.getDate() + " " + MESI[nd.getMonth()].slice(0, 3) : "—"}</b><span>Prossimo festivo${nh ? ": " + nh[1] : ""}</span></div></div></div>
 ${vQuinto()}
@@ -1094,6 +1121,7 @@ function fitBig() {
 window.addEventListener("resize", fitBig);
 function bHome() {
   fitBig();
+  bPat();
   if ($("#gob"))
     $("#gob").onclick = () => {
       tab = "s";
@@ -1115,6 +1143,7 @@ function vCal() {
     pe = iso(P.e),
     n = new Date(y, m + 1, 0).getDate(),
     st = monthStats(y, m),
+    MD = meseDati(y, m),
     td = iso(new Date()),
     ym = iso(cur).slice(0, 7);
   if (sel.slice(0, 7) !== ym) sel = td.slice(0, 7) === ym ? td : iso(cur);
@@ -1148,29 +1177,178 @@ function vCal() {
       ferie: "+ Inserisci ferie",
       permesso: "+ Inserisci permessi",
       malattia: "Segna malattia",
-    }[t];
+    }[t],
+    hn = (() => {
+      if (!H[sel] || x.t || !wh()) return "";
+      const dw = D.getDay(),
+        lav = dayH(x) > 0,
+        u = fmtH(wh() / 6);
+      if (dw === 0)
+        return lav
+          ? "Domenica festiva lavorata: le ore ordinarie hanno la maggiorazione festivo."
+          : "Domenica festiva non lavorata: non aggiunge ore.";
+      if (!lav)
+        return (
+          "Festivo non lavorato: vale " +
+          u +
+          " nelle ore effettive" +
+          (dw === 6
+            ? ", ma non abbassa il tetto della settimana."
+            : " e abbassa il tetto della settimana.")
+        );
+      return (
+        "Festivo lavorato: valgono le ore timbrate più " +
+        u +
+        " in più" +
+        (H[sel] === "Santo Patrono" || dw === 6
+          ? ", senza maggiorazione festivo."
+          : ", con maggiorazione festivo sulle ore ordinarie.")
+      );
+    })(),
+    dmk = (d) => d.getDate() + "/" + (d.getMonth() + 1),
+    wkH = MD.wk.length
+      ? `<details class="card cl" data-c="wk"${openAttr("wk")}><summary><h3 class="fh">Dettaglio settimane</h3></summary><table class="tb"><thead><tr><th>Settimana</th><th>Ore</th><th>Tetto</th><th>Sopra</th><th>Festivo</th></tr></thead><tbody>${MD.wk.map((w) => `<tr><td>${dmk(w.s)}–${dmk(w.e)}</td><td>${fmtH(w.tot)}</td><td>${fmtH(w.cap)}</td><td>${w.sopra > 0.001 ? "<b>" + fmtH(w.sopra) + "</b>" : "—"}</td><td>${w.fest > 0.001 ? fmtH(w.fest) : "—"}</td></tr>`).join("")}</tbody></table><p style="color:var(--mu);font-size:13px;margin:10px 0 0">Ore = lavorate + ferie, permessi, malattia e festivi non lavorati. Le suppl. del periodo sono le ore effettive (${fmtH(st.w + st.fe)}) meno le previste (${fmtH(st.e)}): ${fmtH(MD.supp)}. Le settimane sotto il tetto compensano quelle sopra.</p></details>`
+      : "";
   return `<div class="row" style="margin-bottom:10px"><button class="b s" id="pv">‹</button><h2>${MESI[m]} ${y}</h2><button class="b s" id="nx">›</button></div>
 <div class="card"><div class="cal">${["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"].map((g) => `<div class="wd">${g}</div>`).join("")}${c}</div></div>
+${vPat()}
 <div class="card"><div class="row"><b>Periodo di calcolo</b><b class="neg">Importante!</b></div><div class="fg"><div><label>Dal</label><input type="date" id="ps" value="${ps}"></div><div><label>Al</label><input type="date" id="pe" value="${pe}"></div></div></div>
-<div class="card"><div class="row" style="align-items:flex-start"><div><b>${GF[D.getDay()]} ${D.getDate()} ${MESI[D.getMonth()]}</b><small style="display:block;color:var(--mu);margin-top:2px">${stt}</small></div><small style="color:#ef4444;text-align:right">${H[sel] || ""}</small></div>
+<div class="card"><div class="row" style="align-items:flex-start"><div><b>${GF[D.getDay()]} ${D.getDate()} ${MESI[D.getMonth()]}</b><small style="display:block;color:var(--mu);margin-top:2px">${stt}</small></div><small style="color:#ef4444;text-align:right">${H[sel] || ""}</small></div>${hn ? `<small style="display:block;color:var(--mu);margin-top:8px">${hn}</small>` : ""}
 <div class="dact"><select id="dt">${op("", "Lavoro")}${op("ferie", "Ferie")}${op("permesso", "Permesso")}${op("malattia", "Malattia")}</select><button class="b" id="${t === "" ? "da" : "di"}">${lab}</button><button class="b s" id="dc">Cancella</button></div>${x.turni && !x.t ? '<h4 class="sh">Turno inserito</h4>' + turniTab(x.turni) : ""}${x.tim ? timTab(x.tim, x.turni && !x.t ? x.h : null) : ""}</div>
-<div class="card"><div class="grid"><div class="k"><b>${fmtH(st.w + st.fe)}</b><span>Ore effettive (incl. assenze)</span></div><div class="k"><b>${fmtH(st.e)}</b><span>Ore previste</span></div><div class="k"><b class="${st.bal >= 0 ? "pos" : "neg"}">${st.bal > 0 ? "+" : ""}${fmtH(st.bal)}</b><span>Saldo mese</span></div><div class="k"><b>${st.ex} / ${st.hol}</b><span>Ferie / festivi nel mese</span></div></div></div>${vBustaMese(y, m)}`;
+<div class="card"><div class="grid"><div class="k"><b>${fmtH(st.w + st.fe)}</b><span>Ore effettive (incl. assenze)</span></div><div class="k"><b>${fmtH(st.e)}</b><span>Ore previste</span></div><div class="k"><b class="${st.bal >= 0 ? "pos" : "neg"}">${st.bal > 0 ? "+" : ""}${fmtH(st.bal)}</b><span>Saldo mese</span></div><div class="k"><b>${st.ex} / ${st.hol}</b><span>Ferie / festivi nel mese</span></div></div></div>${wkH}${vBustaMese(y, m)}`;
 }
 function vBustaMese(y, m) {
   const ck = checkMese(y, m);
   if (!ck) return "";
   const bad = ck.filter((x) => !x.ok),
-    f = (v) => fmtH(v);
+    f = (v) => fmtH(v),
+    mis = [
+      ["ferie", "Ferie godute", "ferie"],
+      ["permesso", "Permessi", "permessi"],
+    ]
+      .map(([t, lab, nome]) => {
+        const r = ck.find((z) => z.lab === lab);
+        return r && r.diff < -0.25 ? [t, nome, r.b - r.a] : null;
+      })
+      .filter(Boolean);
   return `<div class="card"><h3 class="fh">Confronto con la busta</h3>${
     bad.length
       ? bad
           .map(
             (x) =>
-              `<div class="fr"><div>${x.lab}<small>app ${f(x.a)} · busta ${f(x.b)}</small></div><b class="neg">${x.diff > 0 ? "+" : ""}${f(x.diff)}</b></div>`,
+              `<div class="fr"><div>${x.lab}<small>app ${f(x.a)} · busta ${f(x.b)}</small>${x.why ? `<small style="margin-top:4px">${esc(x.why)}</small>` : ""}</div><b class="neg">${x.diff > 0 ? "+" : ""}${f(x.diff)}</b></div>`,
           )
           .join("")
       : `<div class="fr"><div>Tutto coincide con la busta</div><b class="pos">✓</b></div>`
-  }</div>`;
+  }${mis
+    .map(
+      ([t, nome, h]) =>
+        `<div class="fr"><div>Mancano ${f(h)} di ${nome}<small>Giorni senza ore nel periodo: scegli quali segnare</small></div><button class="b" data-prop="${t}" data-h="${h}">Proponi giorni</button></div>`,
+    )
+    .join("")}</div>`;
+}
+// propone i giorni liberi del periodo come ferie/permessi, da confermare
+function propModal(tipo, needed, y, m) {
+  if (!wh()) return avvisoOre();
+  const nome = tipo === "ferie" ? "ferie" : "permessi",
+    L = giorniLiberi(y, m),
+    close0 = (mm, close) => (mm.querySelector("#mc").onclick = close);
+  if (!L.length)
+    return modal(
+      `<h3>Nessun giorno libero</h3><p style="color:var(--mu);margin:0 0 16px">Nel periodo non ci sono giorni senza ore (domeniche e festivi esclusi): non c'è niente da proporre.</p><div class="row"><button class="b" id="mc">Ok</button></div>`,
+      close0,
+    );
+  const H = {},
+    fest = (k) => {
+      const yy = +k.slice(0, 4);
+      H[yy] = H[yy] || holidays(yy);
+      return d0.getDay() === 0 || !!H[yy][k];
+    };
+  let d0;
+  // giorni di una stessa pausa: tra l'uno e l'altro solo domeniche o festivi
+  const runs = [];
+  L.forEach((k, i) => {
+    let join = false;
+    if (i) {
+      join = true;
+      const a = pd(L[i - 1]);
+      for (a.setDate(a.getDate() + 1); iso(a) < k; a.setDate(a.getDate() + 1)) {
+        d0 = a;
+        if (!fest(iso(a))) {
+          join = false;
+          break;
+        }
+      }
+    }
+    if (join) runs[runs.length - 1].push(k);
+    else runs.push([k]);
+  });
+  const n = Math.max(1, Math.round(needed / (wh() / 6))),
+    sel = new Set();
+  runs
+    .slice()
+    .sort((a, b) => b.length - a.length)
+    .forEach((r) =>
+      r.forEach((k) => {
+        if (sel.size < n) sel.add(k);
+      }),
+    );
+  const lab = (k) => {
+    const d = pd(k);
+    return GG[d.getDay()] + " " + d.getDate() + " " + MESI[d.getMonth()].slice(0, 3);
+  };
+  modal(
+    `<h3>Segna ${nome}</h3><p style="color:var(--mu);margin:0 0 12px">Nella busta ci sono <b>${fmtH(needed)}</b> di ${nome} che nel calendario non hai segnato. Ho preselezionato ${sel.size} giorni senza ore: scegli quelli giusti, le ore si dividono in parti uguali.</p><div id="pl" style="max-height:42vh;overflow:auto">${L.map((k) => `<label class="chk"><input type="checkbox" data-k="${k}"${sel.has(k) ? " checked" : ""}><span>${lab(k)}</span></label>`).join("")}</div><div class="tot"><span>Ore per giorno</span><b id="pt"></b></div><p id="pe" class="neg" style="margin:0 0 10px"></p><div class="row"><button class="b s" id="mc">Annulla</button><button class="b" id="ms">Segna</button></div>`,
+    (mm, close) => {
+      const chk = () => [...mm.querySelectorAll("[data-k]:checked")].map((i) => i.dataset.k),
+        upd = () => {
+          const c = chk().length;
+          mm.querySelector("#pt").textContent = c ? fmtH(needed / c) : "—";
+        };
+      mm.querySelector("#pl").onchange = upd;
+      mm.querySelector("#mc").onclick = close;
+      mm.querySelector("#ms").onclick = () => {
+        const ks = chk();
+        if (!ks.length) {
+          mm.querySelector("#pe").textContent = "Scegli almeno un giorno.";
+          return;
+        }
+        const h = Math.round((needed / ks.length) * 1e4) / 1e4;
+        ks.forEach((k) => {
+          const o = { t: tipo, h },
+            tm = (S.days[k] || {}).tim;
+          if (tm) o.tim = tm;
+          S.days[k] = o;
+        });
+        pt = null;
+        save();
+        keep = 1;
+        close();
+        render();
+      };
+      upd();
+    },
+  );
+}
+// promemoria: il santo patrono si imposta ogni anno
+function vPat() {
+  const yy = new Date().getFullYear();
+  if ((S.set.patroni || {})[yy] || S.set.patSkip === yy) return "";
+  return `<div class="card"><b>Santo Patrono ${yy}</b><small style="display:block;color:var(--mu);margin:2px 0 10px">Non l'hai impostato. Se la tua città lo festeggia e lavori, conta come festivo in più.</small><div class="grid"><button class="b s" id="pat-no">Non ce l'ho</button><button class="b" id="pat-go">Imposta</button></div></div>`;
+}
+function bPat() {
+  if ($("#pat-go"))
+    $("#pat-go").onclick = () => {
+      tab = "s";
+      render();
+    };
+  if ($("#pat-no"))
+    $("#pat-no").onclick = () => {
+      S.set.patSkip = new Date().getFullYear();
+      save();
+      keep = 1;
+      render();
+    };
 }
 
 function ferieModal(k0, tipo = "ferie") {
@@ -1323,6 +1501,21 @@ function bCal() {
     };
   $("#ps").onchange = (e) => sp("s", e.target.value);
   $("#pe").onchange = (e) => sp("e", e.target.value);
+  document
+    .querySelectorAll("details.cl")
+    .forEach(
+      (d) =>
+        (d.ontoggle = () =>
+          d.open ? opn.add(d.dataset.c) : opn.delete(d.dataset.c)),
+    );
+  document
+    .querySelectorAll("[data-prop]")
+    .forEach(
+      (b) =>
+        (b.onclick = () =>
+          propModal(b.dataset.prop, +b.dataset.h, cur.getFullYear(), cur.getMonth())),
+    );
+  bPat();
 }
 function vQuinto() {
   const s = quintoStato();

@@ -12,21 +12,13 @@
     reloading = true;
     location.reload();
   });
-
   sw.register("sw.js", { updateViaCache: "none" })
     .then((reg) => {
       const chk = () => reg.update().catch(warn);
-
-      // Controllo immediato all'apertura
       chk();
-
-      // Controllo quando l'app torna in primo piano
       document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible") chk();
       });
-
-      // Controllo anche quando la pagina torna online
-      window.addEventListener("online", chk);
     })
     .catch(warn);
 })();

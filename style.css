@@ -847,3 +847,20 @@ input[type="file"] {
   color: var(--mu);
   font-weight: 600;
 }
+
+.chk {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--bd);
+  color: var(--tx);
+  font-size: 16px;
+}
+.chk input {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+}
